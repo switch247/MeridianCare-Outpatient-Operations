@@ -1,0 +1,22 @@
+openapi: 3.0.3
+info: { title: MeridianCare Offline API, version: 1.0.0 }
+paths:
+  /api/auth/login: { post: { summary: Local login } }
+  /api/encounters/{id}/sign: { post: { summary: Sign encounter with diagnosis requirement } }
+  /api/prescriptions: { post: { summary: Submit prescription with hard-stop override policy } }
+  /api/pharmacy/{id}/action: { post: { summary: Approve/dispense/void transitions } }
+  /api/billing/price: { post: { summary: Discount engine in fixed order } }
+  /api/invoices/{id}/payment: { post: { summary: Manual payment entry } }
+  /api/inventory/movements: { post: { summary: Inventory lifecycle movements } }
+  /api/credentialing/onboard: { post: { summary: 30-day license eligibility check } }
+  /api/credentialing/import: { post: { summary: Batch import with row-level validation errors } }
+  /api/shipping/templates: { get: { summary: Local zone-based shipping templates } }
+  /api/crawler/run: { post: { summary: collect-parse-store orchestration } }
+  /api/crawler/{id}/retry: { post: { summary: Exponential backoff retry scheduling for crawler jobs } }
+  /api/models/register: { post: { summary: model version register + rollback semantics } }
+  /api/models/{id}/rollback: { post: { summary: One-click rollback to prior deployed version } }
+  /api/admin/backups/nightly: { post: { summary: encrypted nightly backup schedule } }
+  /api/admin/backups/restore-drill: { post: { summary: Record monthly restore drill evidence }, get: { summary: List restore drill history } }
+  /api/sync/enqueue: { post: { summary: Queue offline client mutation for later sync } }
+  /api/sync/status: { get: { summary: Offline sync queue status by state } }
+  /api/audit: { get: { summary: auditor export endpoint } }

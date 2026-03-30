@@ -1,0 +1,15 @@
+.layout { max-width: 1180px; margin: 0 auto; padding: 1.2rem; font-family: Segoe UI, Arial, sans-serif; }
+header { margin-bottom: 1rem; }
+h1 { margin: 0; font-size: 1.8rem; }
+.roles { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: .5rem; margin-bottom: 1rem; }
+button { border: 1px solid #1f4b99; background: #fff; padding: .65rem .5rem; cursor: pointer; font-weight: 600; }
+button.active { background: #1f4b99; color: #fff; }
+.panel { border: 1px solid #d7ddea; background: linear-gradient(135deg,#f9fbff,#f0f4ff); padding: 1rem; }
+ol { margin: .5rem 0 0 1.2rem; display: grid; gap: .35rem; }
+.auth { margin-bottom: 1rem; }
+.row { display: grid; grid-template-columns: 1.2fr 1.2fr auto; gap: .5rem; }
+input { border: 1px solid #c7d2eb; padding: .6rem; }
+.msg { margin: .5rem 0 0; font-weight: 600; }
+.run { margin-top: 1rem; }
+pre { margin-top: .75rem; padding: .75rem; background: #0f1f3d; color: #eaf1ff; overflow: auto; max-height: 220px; }
+@media (max-width: 960px) { .roles { grid-template-columns: repeat(2, minmax(120px, 1fr)); } }

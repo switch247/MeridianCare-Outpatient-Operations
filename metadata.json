@@ -1,0 +1,9 @@
+{
+  "project_type": "fullstack",
+  "backend_framework": "fastify",
+  "frontend_framework": "angular",
+  "backend_language": "javascript",
+  "frontend_language": "typescript",
+  "database": "postgres",
+  "prompt": ""
+}
