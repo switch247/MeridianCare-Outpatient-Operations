@@ -17,16 +17,15 @@ docker compose up --build
 - Frontend: http://localhost:14200
 - Backend health: http://localhost:13000/health
 
-## Run Tests
-```bash
-docker compose exec backend npm test
 docker compose exec backend node /app/scripts/api_smoke_test.js
 docker compose exec backend node /app/scripts/requirement_api_test.js
+## Run Tests (Docker-only)
+All commands are intended to run via Docker Compose. Example:
+
+```bash
+docker compose exec backend npm test
 ```
-On Windows PowerShell you can also run:
-```powershell
-.\run_tests.ps1
-```
+The repository is designed to run within the provided Docker environment; local (host) run commands are not supported or tested.
 
 ## Security & Data Isolation
 - Local username/password auth with bcrypt hashes, min length 12.
@@ -35,3 +34,20 @@ On Windows PowerShell you can also run:
 - RBAC route enforcement for Physician/Pharmacist/Billing/Inventory/Admin/Auditor.
 - PHI encryption for sensitive patient identifiers.
 - Immutable audit events + version increments on key clinical/credentialing records.
+
+## Seeded Users (local development)
+
+The backend seeder creates one user per role for convenience. By default the seeded accounts are:
+
+- username: `physician@local` — role: `physician`
+- username: `pharmacist@local` — role: `pharmacist`
+- username: `billing@local` — role: `billing`
+- username: `inventory@local` — role: `inventory`
+- username: `admin@local` — role: `admin`
+- username: `auditor@local` — role: `auditor`
+
+Default password: `Password!123`
+
+You can override the seeded password by setting the `SEED_PASSWORD` environment variable before starting the backend. The seeder runs automatically after the server starts (non-blocking) when the database is initialized.
+
+Frontend: open the `User Management` page (Admin role) to create/edit users. Use the seeded admin account to log in and manage users.

@@ -1,8 +1,8 @@
 # API Acceptance Scenarios
 
 Executed by:
-- `backend/scripts/api_smoke_test.js`
-- `backend/scripts/requirement_api_test.js`
+- `tests/API_tests/scripts/api_smoke_test.js`
+- `tests/API_tests/scripts/requirement_api_test.js`
 
 Covered scenarios:
 - Local auth register/login and token issuance

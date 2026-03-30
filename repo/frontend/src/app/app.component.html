@@ -1,29 +1,102 @@
-<main class="layout">
-  <header>
-    <h1>MeridianCare Outpatient Operations</h1>
-    <p>Desktop-first Angular workstation interface</p>
+<div class="min-h-screen flex flex-col bg-gray-50">
+  <!-- Top header -->
+  <header class="h-14 bg-white border-b border-gray-200 flex items-center px-4">
+    <div class="flex items-center gap-3">
+      <div class="text-lg font-bold">MeridianCare</div>
+      <div class="text-sm text-gray-500">Outpatient Operations</div>
+    </div>
   </header>
 
-  <section class="panel auth">
-    <h2>Local Login</h2>
-    <div class="row">
-      <input [(ngModel)]="username" placeholder="username" />
-      <input [(ngModel)]="password" placeholder="password" type="password" />
-      <button (click)="login()" [disabled]="busy() || !username">Sign In</button>
+  <!-- Auth view -->
+  <ng-container *ngIf="!api.getToken()">
+    <div class="flex-1 flex items-center justify-center">
+      <div class="w-full max-w-md p-8 bg-white rounded shadow">
+        <h2 class="text-xl font-semibold mb-4">Sign in</h2>
+        <form (ngSubmit)="login()" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Username</label>
+            <input [(ngModel)]="username" name="username" required class="mt-1 block w-full rounded border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Password</label>
+            <input [(ngModel)]="password" name="password" type="password" required class="mt-1 block w-full rounded border-gray-300 shadow-sm" />
+          </div>
+          <div class="flex items-center justify-between">
+            <label class="flex items-center gap-2 text-sm"><input type="checkbox" [(ngModel)]="remember" name="remember" /> Remember</label>
+            <button type="submit" class="px-4 py-2 bg-black text-white rounded">Sign in</button>
+          </div>
+          <p class="text-sm text-red-600">{{ message() }}</p>
+        </form>
+      </div>
     </div>
-    <p class="msg">{{ message() }}</p>
-  </section>
+  </ng-container>
 
-  <nav class="roles">
-    <button *ngFor="let r of roles" (click)="setRole(r)" [class.active]="role()===r">{{r}}</button>
-  </nav>
+  <!-- Authenticated dashboard -->
+  <ng-container *ngIf="api.getToken()">
+    <div class="flex flex-1 overflow-hidden">
+      <!-- Sidebar -->
+      <aside class="w-64 bg-white border-r border-gray-200 sticky top-14 h-[calc(100vh-56px)] overflow-auto p-4">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-12 h-12 bg-black text-white rounded flex items-center justify-center font-bold">{{ currentUser()?.username?.charAt(0)?.toUpperCase() }}</div>
+          <div>
+            <div class="font-semibold">{{ currentUser()?.username }}</div>
+            <div class="text-xs text-gray-500">{{ currentUser()?.role }}</div>
+          </div>
+        </div>
 
-  <section class="panel">
-    <h2>{{ role() | titlecase }} Workflow</h2>
-    <ol>
-      <li *ngFor="let step of activeSteps()">{{ step }}</li>
-    </ol>
-    <button class="run" (click)="runRoleAction()" [disabled]="busy() || !api.getToken()">Run {{ role() }} Action</button>
-    <pre *ngIf="apiResult()">{{ apiResult() | json }}</pre>
-  </section>
-</main>
+        <nav class="flex flex-col gap-2">
+          <button (click)="selectedView.set('home')" class="text-left px-3 py-2 rounded hover:bg-gray-50">Home</button>
+          <button (click)="selectedView.set('profile')" class="text-left px-3 py-2 rounded hover:bg-gray-50">Profile</button>
+          <button *ngIf="currentUser()?.role==='admin'" (click)="selectedView.set('users')" class="text-left px-3 py-2 rounded hover:bg-gray-50">User Management</button>
+        </nav>
+
+        <div class="mt-6">
+          <div class="text-xs text-gray-400 mb-2">Workflows</div>
+          <div class="text-sm text-gray-700">
+            <div *ngFor="let step of activeSteps()">• {{ step }}</div>
+          </div>
+        </div>
+
+        <div class="mt-auto pt-4">
+          <button (click)="logout()" class="w-full text-left text-sm text-red-600">Sign out</button>
+        </div>
+      </aside>
+
+      <!-- Main area -->
+      <div class="flex-1 flex flex-col">
+        <div class="h-14 bg-white border-b border-gray-200 flex items-center justify-between px-4 sticky">
+          <div class="font-semibold">{{ role() | titlecase }} Dashboard</div>
+          <div>
+            <button (click)="runRoleAction()" class="px-3 py-1 bg-black text-white rounded">Run</button>
+          </div>
+        </div>
+
+        <main class="flex-1 overflow-auto p-6 bg-gray-50">
+          <ng-container [ngSwitch]="selectedView()">
+            <ng-container *ngSwitchCase="'users'">
+              <app-user-management></app-user-management>
+            </ng-container>
+            <ng-container *ngSwitchCase="'profile'">
+              <div class="max-w-3xl">
+                <h3 class="text-xl font-semibold mb-3">Profile</h3>
+                <div class="bg-white p-4 rounded shadow">
+                  <p><strong>Username:</strong> {{ currentUser()?.username }}</p>
+                  <p><strong>Role:</strong> {{ currentUser()?.role }}</p>
+                  <p *ngIf="currentUser()?.clinic_id"><strong>Clinic:</strong> {{ currentUser()?.clinic_id }}</p>
+                </div>
+              </div>
+            </ng-container>
+            <ng-container *ngSwitchDefault>
+              <div class="max-w-4xl">
+                <h3 class="text-xl font-semibold mb-3">Quick Actions</h3>
+                <div class="grid grid-cols-1 gap-3">
+                  <div *ngFor="let step of activeSteps()" class="bg-white p-4 rounded shadow">{{ step }}</div>
+                </div>
+              </div>
+            </ng-container>
+          </ng-container>
+        </main>
+      </div>
+    </div>
+  </ng-container>
+</div>

@@ -42,8 +42,27 @@ async function authRoutes(fastify, opts) {
     await pool.query('INSERT INTO sessions(user_id,jti,kiosk,revoked,last_active_at,expires_at) VALUES($1,$2,$3,$4,NOW(),$5)', [user.id, jti, kiosk, false, expiresAt]);
     logger.info(['handler','auth:login','success'], `user=${username} jti=${jti} kiosk=${kiosk}`);
     const token = await reply.jwtSign({ sub: user.id, role: user.role, kiosk }, { jwtid: jti, expiresIn: `${ttlMin}m` });
-    return { token, role: user.role };
-  });
+    // return safe user info along with token
+    const safeUser = { id: user.id, username: user.username, role: user.role, clinic_id: user.clinic_id || null };
+    return { token, role: user.role, user: safeUser };
+    });
+  
+    // Public route that will authenticate the token inside the handler so it works even when caller
+    // uses a plain GET and CORS preflight; this avoids reliance on preHandler wiring in some clients.
+    fastify.get('/api/auth/me', async (request, reply) => {
+      try {
+        // attempt to authenticate using the app-level auth decorator
+        if (typeof fastify.auth === 'function') await fastify.auth(request, reply);
+        const u = request.user;
+        if (!u || !u.id) return reply.code(401).send({ code: 401, msg: 'Not authenticated' });
+        const r = await pool.query('SELECT id,username,role,clinic_id FROM users WHERE id=$1', [u.id]);
+        const user = r.rows[0] || null;
+        return user;
+      } catch (e) {
+        logger.error(['handler','auth:me','error'], e.message);
+        return reply.code(500).send({ code: 500, msg: 'Internal server error' });
+      }
+    });
 
   fastify.post('/api/auth/logout', async (request, reply) => {
     logger.info(['handler','auth:logout'], `logout request`);

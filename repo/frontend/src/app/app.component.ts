@@ -2,13 +2,14 @@ import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from './services/api.service';
+import { UserManagementComponent } from './pages/user-management.component';
 
 type Role = 'physician'|'pharmacist'|'billing'|'inventory'|'admin'|'auditor';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, UserManagementComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -25,20 +26,47 @@ export class AppComponent {
   };
   activeSteps = computed(() => this.flows[this.role()]);
   username = '';
-  password = 'StrongPass123';
+  password = '';
+  remember = false;
+  kiosk = false;
   message = signal('Ready');
   busy = signal(false);
   apiResult = signal<unknown>(null);
+  currentUser = signal<any>(null);
+  selectedView = signal<string>('home');
 
   constructor(public api: ApiService) {}
+
+  ngOnInit() {
+    // restore token and user if persisted
+    this.api.loadTokenFromStorage();
+    const su = localStorage.getItem('user');
+    if (su) {
+      this.currentUser.set(JSON.parse(su));
+    } else if (this.api.getToken()) {
+      // fetch profile from backend when token exists but no cached user
+      this.api.getMe().subscribe({ next: (u: any) => { this.currentUser.set(u); localStorage.setItem('user', JSON.stringify(u)); }, error: () => {} });
+    }
+  }
 
   setRole(role: Role) { this.role.set(role); }
   login() {
     this.busy.set(true);
     this.api.login(this.username, this.password).subscribe({
       next: (res) => {
-        this.api.setToken(res.token);
+        this.api.persistToken(res.token, this.remember);
+        // store user info for profile and layout
+        if (res.user) {
+          this.currentUser.set(res.user);
+          localStorage.setItem('user', JSON.stringify(res.user));
+        }
+        // set app role and api role
         this.role.set((res.role as Role) || 'physician');
+        this.api.setRole(res.role || 'physician');
+        // default landing per role
+        if (res.role === 'admin') this.selectedView.set('users');
+        else if (res.role === 'physician') this.selectedView.set('home');
+        else this.selectedView.set('home');
         this.message.set(`Logged in as ${res.role}`);
         this.busy.set(false);
       },
@@ -47,6 +75,15 @@ export class AppComponent {
         this.busy.set(false);
       },
     });
+  }
+
+  logout() {
+    this.api.setToken('');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    this.currentUser.set(null);
+    this.api.setRole('physician');
+    this.message.set('Signed out');
   }
 
   runRoleAction() {

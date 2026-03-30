@@ -23,7 +23,7 @@ async function clinicsRoutes(fastify, opts) {
     logger.info(['handler','clinics:update'], `update clinic ${request.params.id} by ${request.user && request.user.username}`);
     const id = request.params.id;
     const b = request.body || {};
-    const clinic = await updateClinic(id, { name: b.name, address: b.address, contactInfo: b.contactInfo, type: b.type }, request.user.id, request.user.role);
+    const clinic = await updateClinic(id, { name: b.name, address: b.address, contactInfo: b.contactInfo, type: b.type, correlationId: request.requestId }, request.user.id, request.user.role);
     logger.info(['handler','clinics:update','saved'], `clinic=${clinic.id}`);
     return clinic;
   });
@@ -34,7 +34,7 @@ async function clinicsRoutes(fastify, opts) {
     const b = request.body || {};
     // require explicit confirmation + reason
     if (!b.confirmed || !b.reason) return reply.code(400).send({ code: 400, msg: 'Deletion requires confirmed=true and a reason' });
-    const clinic = await deleteClinic(id, { reason: b.reason, confirmed: b.confirmed }, request.user.id, request.user.role);
+    const clinic = await deleteClinic(id, { reason: b.reason, confirmed: b.confirmed, correlationId: request.requestId }, request.user.id, request.user.role);
     logger.info(['handler','clinics:delete','deleted'], `clinic=${id}`);
     return clinic;
   });

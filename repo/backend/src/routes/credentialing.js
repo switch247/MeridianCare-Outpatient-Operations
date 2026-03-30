@@ -11,7 +11,7 @@ async function credentialingRoutes(fastify, opts) {
       if (new Date(b.licenseExpiry) < minDate) { logger.warn(['handler','credentialing:onboard','invalid'], `licenseExpiry too soon`); return reply.code(400).send({ code: 400, msg: 'License expiration must be at least 30 days out' }); }
     }
     const r = await pool.query('INSERT INTO credentialing_profiles(entity_type,full_name,license_number,license_expiry,status) VALUES($1,$2,$3,$4,$5) RETURNING *', [b.entityType, b.fullName, b.licenseNumber || null, b.licenseExpiry || null, 'active']);
-    await writeAudit({ entityType: 'credentialing', entityId: r.rows[0].id, action: 'onboard', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0] });
+    await writeAudit({ entityType: 'credentialing', entityId: r.rows[0].id, action: 'onboard', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0], correlationId: request.requestId });
     logger.info(['handler','credentialing:onboard','created'], `profile=${r.rows[0].id}`);
     reply.code(201); return r.rows[0];
   });

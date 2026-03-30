@@ -20,7 +20,7 @@ async function getClinic(id) {
   return r.rows[0] || null;
 }
 
-async function updateClinic(id, { name, address, contactInfo, type }, actorId, actorRole) {
+async function updateClinic(id, { name, address, contactInfo, type, correlationId }, actorId, actorRole) {
   const r = await pool.query(
     'UPDATE clinics SET name=$1,address=$2,contact_info=$3,type=$4,updated_at=NOW() WHERE id=$5 RETURNING *',
     [name, address || null, JSON.stringify(contactInfo || {}), type || 'clinical', id],
@@ -30,7 +30,7 @@ async function updateClinic(id, { name, address, contactInfo, type }, actorId, a
   return clinic;
 }
 
-async function deleteClinic(id, { reason, confirmed }, actorId, actorRole) {
+async function deleteClinic(id, { reason, confirmed, correlationId }, actorId, actorRole) {
   if (!confirmed) throw new Error('Deletion must be confirmed');
   const r = await pool.query('SELECT * FROM clinics WHERE id=$1', [id]);
   const clinic = r.rows[0];

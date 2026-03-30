@@ -17,7 +17,7 @@ async function prescriptionsRoutes(fastify, opts) {
       if (!valid) return reply.code(401).send({ code: 401, msg: 'Invalid re-auth password' });
     }
     const r = await pool.query('INSERT INTO prescriptions(encounter_id,patient_id,prescriber_id,drug_name,dose,route,quantity,instructions,override_reason,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [b.encounterId, b.patientId, request.user.id, b.drugName, b.dose, b.route, b.quantity, b.instructions, b.overrideReason || null, 'submitted']);
-    await writeAudit({ entityType: 'prescription', entityId: r.rows[0].id, action: 'submit', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0] });
+    await writeAudit({ entityType: 'prescription', entityId: r.rows[0].id, action: 'submit', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0], correlationId: request.requestId });
     logger.info(['handler','prescriptions:create','created'], `prescription=${r.rows[0].id}`);
     reply.code(201); return r.rows[0];
   });
@@ -36,7 +36,7 @@ async function prescriptionsRoutes(fastify, opts) {
     const next = b.action === 'approve' ? 'approved' : b.action === 'dispense' ? 'dispensed' : b.action === 'void' ? 'voided' : null;
     if (!next) return reply.code(400).send({ code: 400, msg: 'Invalid action' });
     const upd = await pool.query('UPDATE prescriptions SET state=$1,version=version+1,updated_at=NOW() WHERE id=$2 RETURNING *', [next, rx.id]);
-    await writeAudit({ entityType: 'prescription', entityId: rx.id, action: b.action, actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: upd.rows[0] });
+    await writeAudit({ entityType: 'prescription', entityId: rx.id, action: b.action, actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: upd.rows[0], correlationId: request.requestId });
     return upd.rows[0];
   });
 }
