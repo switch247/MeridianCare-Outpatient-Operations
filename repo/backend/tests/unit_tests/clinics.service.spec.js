@@ -1,9 +1,9 @@
 vi.mock('../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
 vi.mock('../src/lib/audit', () => ({ writeAudit: vi.fn() }));
 
-const { pool } = require('../src/db');
-const { writeAudit } = require('../src/lib/audit');
-const { createClinic, updateClinic, deleteClinic } = require('../src/services/clinics');
+const { pool } = require('../../src/db');
+const { writeAudit } = require('../../src/lib/audit');
+const { createClinic, updateClinic, deleteClinic } = require('../../src/services/clinics');
 
 describe('clinics service audit correlation', () => {
   beforeEach(() => { pool.query = vi.fn(); writeAudit.mockClear(); });
@@ -33,9 +33,9 @@ describe('clinics service audit correlation', () => {
 vi.mock('../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
 vi.mock('../src/lib/audit', () => ({ writeAudit: vi.fn() }));
 
-const { pool } = require('../src/db');
-const { writeAudit } = require('../src/lib/audit');
-const { createClinic, updateClinic, deleteClinic } = require('../src/services/clinics');
+const { pool } = require('../../src/db');
+const { writeAudit } = require('../../src/lib/audit');
+const { createClinic, updateClinic, deleteClinic } = require('../../src/services/clinics');
 
 describe('clinics service audit correlation', () => {
   beforeEach(() => { pool.query = vi.fn(); writeAudit.mockClear(); });

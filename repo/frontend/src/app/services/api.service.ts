@@ -37,6 +37,8 @@ export class ApiService {
     return this.http.post(this.url('/api/auth/register'), { username, password, role });
   }
   getUsers() { return this.http.get(this.url('/api/users'), { headers: this.authHeaders() }); }
+  getClinic() { return this.http.get(this.url('/api/clinics'), { headers: this.authHeaders() }); }
+  updateClinic(id: string, payload: unknown) { return this.http.put(this.url(`/api/clinics/${id}`), payload, { headers: this.authHeaders() }); }
   createUser(payload: { username: string; password: string; role: string }) {
     return this.http.post(this.url('/api/users'), payload, { headers: this.authHeaders() });
   }
@@ -57,4 +59,13 @@ export class ApiService {
   billPrice(payload: unknown) { return this.http.post(this.url('/api/billing/price'), payload, { headers: this.authHeaders() }); }
   runCrawler(payload: unknown) { return this.http.post(this.url('/api/crawler/run'), payload, { headers: this.authHeaders() }); }
   registerModel(payload: unknown) { return this.http.post(this.url('/api/models/register'), payload, { headers: this.authHeaders() }); }
+  // Inventory & Invoices (simple placeholders)
+  getInventory() { return this.http.get(this.url('/api/inventory'), { headers: this.authHeaders() }); }
+  createInventoryItem(payload: unknown) { return this.http.post(this.url('/api/inventory'), payload, { headers: this.authHeaders() }); }
+  updateInventoryItem(id: string, payload: unknown) { return this.http.put(this.url(`/api/inventory/${id}`), payload, { headers: this.authHeaders() }); }
+  deleteInventoryItem(id: string) { return this.http.delete(this.url(`/api/inventory/${id}`), { headers: this.authHeaders() }); }
+
+  getInvoices() { return this.http.get(this.url('/api/invoices'), { headers: this.authHeaders() }); }
+  createInvoice(payload: unknown) { return this.http.post(this.url('/api/invoices'), payload, { headers: this.authHeaders() }); }
+  deleteInvoice(id: string) { return this.http.delete(this.url(`/api/invoices/${id}`), { headers: this.authHeaders() }); }
 }

@@ -1,7 +1,7 @@
 const env = {
-  PORT: Number(process.env.PORT || 3000),
+  PORT: Number(process.env.PORT || 13000),
   HOST: process.env.HOST || '0.0.0.0',
-  DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:postgres@db:5432/meridiancare-clinic',
+  DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/meridiancare-clinic',
   JWT_SECRET: process.env.JWT_SECRET || 'dev-secret-change-me',
   PHI_KEY: process.env.PHI_KEY || 'meridian-local-phi-key',
   TOKEN_TTL_MIN: Number(process.env.TOKEN_TTL_MIN || 15),

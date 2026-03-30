@@ -32,13 +32,13 @@ import { ApiService } from '../services/api.service';
               <td class="px-4 py-3">{{ u.role }}</td>
               <td class="px-4 py-3">{{ u.clinic_id || '-' }}</td>
               <td class="px-4 py-3">
-                <div style="position:relative; display:inline-block">
-                  <button (click)="toggleRowMenu(u.id)" class="px-2 py-1 bg-gray-100 rounded">Actions ▾</button>
-                  <div *ngIf="rowMenuOpen === u.id" class="bg-white border shadow rounded mt-1" style="position:absolute; right:0; z-index:20; min-width:140px;">
-                    <button class="w-full text-left px-3 py-2" (click)="openEdit(u)">Edit</button>
-                    <button class="w-full text-left px-3 py-2 text-red-600" (click)="confirmDelete(u.id)">Delete</button>
+                  <div style="position:relative; display:inline-block">
+                    <button (click)="toggleRowMenu(u.id)" class="px-2 py-1" style="background:#f3f4f6;color:#111;border-radius:6px">Actions ▾</button>
+                    <div *ngIf="rowMenuOpen === u.id" class="bg-white border shadow rounded mt-1" style="position:absolute; right:0; z-index:20; min-width:140px;">
+                      <button class="w-full text-left px-3 py-2" style="background:#fff;color:#111" (click)="openEdit(u)">Edit</button>
+                      <button class="w-full text-left px-3 py-2" style="background:#fff;color:#b91c1c" (click)="confirmDelete(u.id)">Delete</button>
+                    </div>
                   </div>
-                </div>
               </td>
             </tr>
             <tr *ngIf="users.length === 0">
@@ -62,18 +62,15 @@ import { ApiService } from '../services/api.service';
               <label class="text-sm">Password</label>
               <input [(ngModel)]="modalModel.password" name="mpassword" type="password" required class="w-full mt-1" />
             </div>
-            <div>
-              <label class="text-sm">Role</label>
-              <select [(ngModel)]="modalModel.role" name="mrole" class="w-full mt-1">
-                <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="text-sm">Clinic ID (optional)</label>
-              <input [(ngModel)]="modalModel.clinic_id" name="mclinic" class="w-full mt-1" />
-            </div>
+              <div>
+                <label class="text-sm">Role</label>
+                <select [(ngModel)]="modalModel.role" name="mrole" class="w-full mt-1">
+                  <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+                </select>
+              </div>
+              <!-- clinic field intentionally hidden in modal -->
             <div class="flex gap-2 justify-end mt-4">
-              <button type="button" class="px-3 py-1 bg-gray-100 rounded" (click)="closeModal()">Cancel</button>
+              <button type="button" style="background:#eef2f7;color:#111;padding:0.5rem 0.75rem;border-radius:6px" (click)="closeModal()">Cancel</button>
               <button type="submit" class="px-3 py-1 bg-black text-white rounded">{{ modalMode === 'create' ? 'Create' : 'Save' }}</button>
             </div>
           </form>
@@ -93,7 +90,16 @@ export class UserManagementComponent {
   modalMode: 'create' | 'edit' = 'create';
   modalModel: any = { username: '', password: '', role: 'physician', clinic_id: '' };
 
-  constructor(private api: ApiService) { this.load(); }
+  currentUser: any = null;
+
+  constructor(private api: ApiService) {
+    this.load();
+    this.loadCurrentUser();
+  }
+
+  loadCurrentUser() {
+    this.api.getMe().subscribe({ next: (res: any) => { this.currentUser = res; }, error: () => { this.currentUser = null; } });
+  }
 
   load() { this.api.getUsers().subscribe({ next: (res: any) => (this.users = res || []), error: () => (this.users = []) }); }
 
@@ -144,12 +150,10 @@ export class UserManagementComponent {
   saveModal() {
     if (this.modalMode === 'create') {
       const payload: any = { username: this.modalModel.username, password: this.modalModel.password, role: this.modalModel.role };
-      if (this.modalModel.clinic_id) payload.clinic_id = this.modalModel.clinic_id;
       this.api.createUser(payload).subscribe({ next: () => { this.closeModal(); this.load(); } });
     } else {
       const payload: any = { username: this.modalModel.username, role: this.modalModel.role };
       if (this.modalModel.password) payload.password = this.modalModel.password;
-      if (this.modalModel.clinic_id) payload.clinic_id = this.modalModel.clinic_id;
       if (!this.editingId) return this.closeModal();
       this.api.updateUser(this.editingId, payload).subscribe({ next: () => { this.closeModal(); this.load(); } });
     }

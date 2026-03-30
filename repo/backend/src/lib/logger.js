@@ -2,7 +2,7 @@
 	const pino = require('pino');
 	const { env } = require('../config');
 
-	const pinoLogger = pino({ level: env.LOG_LEVEL || 'info', base: null, timestamp: pino.stdTimeFunctions.isoTime });
+	const pinoLogger = pino({ level: env.LOG_LEVEL || 'debug', base: null, timestamp: pino.stdTimeFunctions.isoTime });
 
 	function fmtTags(tags) {
 		if (!tags) return '';
@@ -77,6 +77,8 @@
 				try { request.log = pinoLogger.child({ cid }); } catch (e) { request.log = pinoLogger; }
 				if (reply && typeof reply.header === 'function') reply.header('X-Request-Id', cid);
 				api.info(['req','incoming', request.method, request.raw.url, `cid:${cid}`], `from ${ip}`, { ip, cid });
+				// Also print a concise console line so requests are visible in environments
+				try { console.log(`[req] ${request.method} ${request.raw.url} cid=${cid} ip=${ip}`); } catch (e) { /* swallow */ }
 			} catch (e) { /* swallow */ }
 		});
 
@@ -85,6 +87,7 @@
 				const dur = Date.now() - (request._startTime || Date.now());
 				const cid = request.requestId || null;
 				api.info(['req','completed', request.method, request.raw.url, `status:${reply.statusCode}`, `cid:${cid}`], `completed in ${dur}ms`, { cid, durationMs: dur });
+				try { console.log(`[res] ${request.method} ${request.raw.url} status=${reply.statusCode} cid=${cid} dur=${dur}ms`); } catch (e) { /* swallow */ }
 			} catch (e) { /* swallow */ }
 		});
 	}

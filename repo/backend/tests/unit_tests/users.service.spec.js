@@ -2,9 +2,9 @@ vi.mock('../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
 vi.mock('../src/lib/audit', () => ({ writeAudit: vi.fn() }));
 vi.mock('../src/services/security', () => ({ hashPassword: async (p) => `h:${p}` }));
 
-const { pool } = require('../src/db');
-const { writeAudit } = require('../src/lib/audit');
-const { createUser, updateUser, deleteUser } = require('../src/services/users');
+const { pool } = require('../../src/db');
+const { writeAudit } = require('../../src/lib/audit');
+const { createUser, updateUser, deleteUser } = require('../../src/services/users');
 
 describe('users service audit correlation', () => {
   beforeEach(() => { pool.query = vi.fn(); writeAudit.mockClear(); });

@@ -3,13 +3,17 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from './services/api.service';
 import { UserManagementComponent } from './pages/user-management.component';
+import { MyClinicComponent } from './pages/my-clinic.component';
+import { InventoryPageComponent } from './pages/inventory-page.component';
+import { BillingPageComponent } from './pages/billing-page.component';
+import { InvoicesPageComponent } from './pages/invoices-page.component';
 
 type Role = 'physician'|'pharmacist'|'billing'|'inventory'|'admin'|'auditor';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, UserManagementComponent],
+  imports: [CommonModule, FormsModule, UserManagementComponent, MyClinicComponent, InventoryPageComponent, BillingPageComponent, InvoicesPageComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
