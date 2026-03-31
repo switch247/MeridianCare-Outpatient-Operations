@@ -1,21 +1,25 @@
 import { Routes } from '@angular/router';
-import { AppComponent } from './app.component';
-import { AdminPageComponent } from './pages/admin-page.component';
-import { UserManagementComponent } from './pages/user-management.component';
 import { RoleGuard } from './services/role-guard.service';
-import { ProviderPageComponent } from './pages/provider-page.component';
-import { BillingPageComponent } from './pages/billing-page.component';
+import { HomePageComponent } from './pages/home-page.component';
+import { PhysicianEncounterPageComponent } from './pages/physician-encounter-page.component';
+import { PharmacistQueuePageComponent } from './pages/pharmacist-queue-page.component';
+import { InvoicesPageComponent } from './pages/invoices-page.component';
 import { InventoryPageComponent } from './pages/inventory-page.component';
-import { AuditorPageComponent } from './pages/auditor-page.component';
-import { KioskPageComponent } from './pages/kiosk-page.component';
+import { CredentialingPageComponent } from './pages/credentialing-page.component';
+import { UserManagementComponent } from './pages/user-management.component';
+import { AdminOpsPageComponent } from './pages/admin-ops-page.component';
+import { MyClinicComponent } from './pages/my-clinic.component';
 
 export const routes: Routes = [
-	{ path: '', component: AppComponent },
-	{ path: 'admin', component: AdminPageComponent, canActivate: [RoleGuard(['admin'])] },
-	{ path: 'users', component: UserManagementComponent, canActivate: [RoleGuard(['admin'])] },
-	{ path: 'provider', component: ProviderPageComponent, canActivate: [RoleGuard(['physician'])] },
-	{ path: 'billing', component: BillingPageComponent, canActivate: [RoleGuard(['billing'])] },
-	{ path: 'inventory', component: InventoryPageComponent, canActivate: [RoleGuard(['inventory'])] },
-	{ path: 'auditor', component: AuditorPageComponent, canActivate: [RoleGuard(['auditor'])] },
-	{ path: 'kiosk', component: KioskPageComponent },
+  { path: 'home', component: HomePageComponent, canActivate: [RoleGuard(['physician', 'pharmacist', 'billing', 'inventory', 'admin', 'auditor', 'guest'])] },
+  { path: 'encounters', component: PhysicianEncounterPageComponent, canActivate: [RoleGuard(['physician'])] },
+  { path: 'pharmacy', component: PharmacistQueuePageComponent, canActivate: [RoleGuard(['pharmacist'])] },
+  { path: 'billing', component: InvoicesPageComponent, canActivate: [RoleGuard(['billing', 'admin'])] },
+  { path: 'inventory', component: InventoryPageComponent, canActivate: [RoleGuard(['inventory', 'pharmacist', 'admin'])] },
+  { path: 'credentialing', component: CredentialingPageComponent, canActivate: [RoleGuard(['admin'])] },
+  { path: 'users', component: UserManagementComponent, canActivate: [RoleGuard(['admin'])] },
+  { path: 'admin-ops', component: AdminOpsPageComponent, canActivate: [RoleGuard(['admin'])] },
+  { path: 'my-clinic', component: MyClinicComponent, canActivate: [RoleGuard(['physician', 'pharmacist', 'billing', 'inventory', 'admin', 'auditor'])] },
+  { path: '', pathMatch: 'full', redirectTo: 'home' },
+  { path: '**', redirectTo: 'home' },
 ];

@@ -1,10 +1,13 @@
 const { pool } = require('../db');
 const { writeAudit } = require('../lib/audit');
 const { hashPassword } = require('./security');
+const { encrypt } = require('../utils/crypto');
+const { env } = require('../config');
 
 async function createUser({ username, password, role, clinicId, actorId, actorRole, correlationId }) {
   const pwHash = await hashPassword(password);
-  const r = await pool.query('INSERT INTO users(username,password_hash,role,clinic_id,last_active_at) VALUES($1,$2,$3,$4,NOW()) RETURNING id,username,role,clinic_id', [username, pwHash, role, clinicId || null]);
+  const usernameEncrypted = encrypt(username, env.PHI_KEY);
+  const r = await pool.query('INSERT INTO users(username,username_encrypted,password_hash,role,clinic_id,last_active_at) VALUES($1,$2,$3,$4,$5,NOW()) RETURNING id,username,role,clinic_id', [username, usernameEncrypted, pwHash, role, clinicId || null]);
   const user = r.rows[0];
   await writeAudit({ entityType: 'user', entityId: user.id, action: 'create', actorId, actorRole, eventData: { username, role, clinicId }, snapshot: user, correlationId });
   return user;
@@ -25,7 +28,8 @@ async function getUser(id) {
 }
 
 async function updateUser(id, { username, role, clinicId, correlationId }, actorId, actorRole) {
-  const r = await pool.query('UPDATE users SET username=$1,role=$2,clinic_id=$3 WHERE id=$4 RETURNING id,username,role,clinic_id,created_at', [username, role, clinicId || null, id]);
+  const usernameEncrypted = encrypt(username, env.PHI_KEY);
+  const r = await pool.query('UPDATE users SET username=$1,username_encrypted=$2,role=$3,clinic_id=$4 WHERE id=$5 RETURNING id,username,role,clinic_id,created_at', [username, usernameEncrypted, role, clinicId || null, id]);
   const user = r.rows[0];
   await writeAudit({ entityType: 'user', entityId: id, action: 'update', actorId, actorRole, eventData: { username, role, clinicId }, snapshot: user, correlationId });
   return user;

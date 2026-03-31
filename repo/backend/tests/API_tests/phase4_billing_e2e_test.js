@@ -19,7 +19,9 @@ function request(method, path, body, token) {
 
 async function createUser(username, role) {
   const password = 'StrongPass123';
-  const reg = await request('POST', '/api/auth/register', { username, password, role });
+  const adminLogin = await request('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200);
+  const reg = await request('POST', '/api/admin/users', { username, password, role }, adminLogin.body.token);
   assert.equal(reg.status, 201);
   const login = await request('POST', '/api/auth/login', { username, password });
   assert.equal(login.status, 200);

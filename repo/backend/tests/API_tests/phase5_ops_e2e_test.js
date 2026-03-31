@@ -19,7 +19,9 @@ function request(method, path, body, token) {
 
 async function createUser(username, role) {
   const password = 'StrongPass123';
-  const reg = await request('POST', '/api/auth/register', { username, password, role });
+  const adminLogin = await request('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200);
+  const reg = await request('POST', '/api/admin/users', { username, password, role }, adminLogin.body.token);
   assert.equal(reg.status, 201);
   const login = await request('POST', '/api/auth/login', { username, password });
   assert.equal(login.status, 200);
@@ -66,6 +68,14 @@ async function createUser(username, role) {
     deploy: true,
   }, admin.token);
   assert.equal(modelB.status, 201);
+
+  const forecasts = await request('GET', '/api/admin/forecasts', null, admin.token);
+  assert.equal(forecasts.status, 200);
+  assert.ok(Array.isArray(forecasts.body.forecast));
+
+  const recommendations = await request('GET', '/api/admin/recommendations', null, admin.token);
+  assert.equal(recommendations.status, 200);
+  assert.ok(Array.isArray(recommendations.body.recommendations));
 
   const drift = await request('GET', '/api/models/drift', null, admin.token);
   assert.equal(drift.status, 200);

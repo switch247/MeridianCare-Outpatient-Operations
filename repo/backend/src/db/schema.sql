@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS users (
   role TEXT NOT NULL, failed_attempts INT NOT NULL DEFAULT 0, lockout_until TIMESTAMPTZ, last_active_at TIMESTAMPTZ,
   clinic_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username_encrypted TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_encrypted TEXT;
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id),
@@ -56,6 +58,20 @@ ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(i
 CREATE TABLE IF NOT EXISTS credentialing_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), entity_type TEXT NOT NULL, full_name TEXT NOT NULL, license_number TEXT,
   license_expiry DATE, status TEXT NOT NULL DEFAULT 'pending', version INT NOT NULL DEFAULT 1);
+ALTER TABLE credentialing_profiles ADD COLUMN IF NOT EXISTS license_number_encrypted TEXT;
+ALTER TABLE credentialing_profiles ADD COLUMN IF NOT EXISTS source_row JSONB;
+
+CREATE TABLE IF NOT EXISTS organizations (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  organization_type TEXT NOT NULL DEFAULT 'clinic',
+  contact_email_encrypted TEXT,
+  contact_phone TEXT,
+  address TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 CREATE TABLE IF NOT EXISTS audit_events (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), entity_type TEXT NOT NULL, entity_id UUID NOT NULL, action TEXT NOT NULL,
   actor_id UUID, actor_role TEXT, event_data JSONB NOT NULL, snapshot JSONB NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());

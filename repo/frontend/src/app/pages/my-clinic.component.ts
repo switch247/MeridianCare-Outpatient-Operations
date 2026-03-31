@@ -36,8 +36,14 @@ import { ApiService } from '../services/api.service';
       </div>
 
       <div class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="bg-white p-4 rounded shadow">Placeholder KPI chart A</div>
-        <div class="bg-white p-4 rounded shadow">Placeholder KPI chart B</div>
+        <div class="bg-white p-4 rounded shadow">
+          <strong>Order Volume</strong>
+          <div>{{ kpis?.orderVolume ?? 0 }}</div>
+        </div>
+        <div class="bg-white p-4 rounded shadow">
+          <strong>Acceptance Rate</strong>
+          <div>{{ kpis?.acceptanceRate ?? 0 }}</div>
+        </div>
       </div>
 
       <!-- Edit modal -->
@@ -81,8 +87,9 @@ export class MyClinicComponent {
   currentUser: any = null;
   modalOpen = false;
   edit: any = { name: '', type: '', address: '', contactInfo: { email: '', phone: '' } };
+  kpis: any = null;
 
-  constructor(private api: ApiService) { this.load(); this.loadMe(); }
+  constructor(private api: ApiService) { this.load(); this.loadMe(); this.loadKpis(); }
 
   load() {
     this.api.getClinic().subscribe({ next: (res: any) => {
@@ -93,6 +100,7 @@ export class MyClinicComponent {
   }
 
   loadMe() { this.api.getMe().subscribe({ next: (u: any) => { this.currentUser = u; }, error: () => { this.currentUser = null; } }); }
+  loadKpis() { this.api.getKpis().subscribe({ next: (k: any) => { this.kpis = k; }, error: () => { this.kpis = null; } }); }
 
   openEdit() {
     if (!this.clinic) return;

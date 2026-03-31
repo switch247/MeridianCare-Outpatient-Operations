@@ -33,8 +33,8 @@ export class ApiService {
     return this.http.post<{ token: string; role: string; user?: any }>(this.url('/api/auth/login'), { username, password });
   }
   getMe() { return this.http.get(this.url('/api/auth/me'), { headers: this.authHeaders() }); }
-  register(username: string, password: string, role: string) {
-    return this.http.post(this.url('/api/auth/register'), { username, password, role });
+  register(username: string, password: string) {
+    return this.http.post(this.url('/api/auth/register'), { username, password });
   }
   getUsers() { return this.http.get(this.url('/api/users'), { headers: this.authHeaders() }); }
   getClinic() { return this.http.get(this.url('/api/clinics'), { headers: this.authHeaders() }); }
@@ -49,8 +49,14 @@ export class ApiService {
   unlockUser(id: string) { return this.http.post(this.url(`/api/auth/unlock/${id}`), {}, { headers: this.authHeaders() }); }
   getCredentialingProfiles() { return this.http.get(this.url('/api/credentialing'), { headers: this.authHeaders() }); }
   onboardCredentialing(payload: unknown) { return this.http.post(this.url('/api/credentialing/onboard'), payload, { headers: this.authHeaders() }); }
-  importCredentialing(rows: unknown[]) { return this.http.post(this.url('/api/credentialing/import'), { rows }, { headers: this.authHeaders() }); }
+  importCredentialing(rows: unknown[], mapping: Record<string, string> = {}) { return this.http.post(this.url('/api/credentialing/import'), { rows, mapping }, { headers: this.authHeaders() }); }
+  exportCredentialing() { return this.http.get(this.url('/api/credentialing/export'), { headers: this.authHeaders() }); }
+  getOrganizations() { return this.http.get(this.url('/api/organizations'), { headers: this.authHeaders() }); }
+  createOrganization(payload: unknown) { return this.http.post(this.url('/api/organizations'), payload, { headers: this.authHeaders() }); }
+  updateOrganization(id: string, payload: unknown) { return this.http.put(this.url(`/api/organizations/${id}`), payload, { headers: this.authHeaders() }); }
+  deleteOrganization(id: string) { return this.http.delete(this.url(`/api/organizations/${id}`), { headers: this.authHeaders() }); }
   getKpis() { return this.http.get(this.url('/api/observability/kpis')); }
+  getOverview() { return this.http.get(this.url('/api/overview'), { headers: this.authHeaders() }); }
   searchIcd(q: string) { return this.http.get(this.url('/api/icd'), { params: { q }, headers: this.authHeaders() }); }
   getPharmacyQueue() { return this.http.get(this.url('/api/pharmacy/queue'), { headers: this.authHeaders() }); }
   pharmacyAction(id: string, payload: unknown) { return this.http.post(this.url(`/api/pharmacy/${id}/action`), payload, { headers: this.authHeaders() }); }
@@ -87,10 +93,12 @@ export class ApiService {
   payInvoice(id: string, payload: unknown) { return this.http.post(this.url(`/api/invoices/${id}/payment`), payload, { headers: this.authHeaders() }); }
   cancelInvoice(id: string, payload: unknown) { return this.http.post(this.url(`/api/invoices/${id}/cancel`), payload, { headers: this.authHeaders() }); }
 
-  getCrawlerQueue() { return this.http.get(this.url('/api/crawler/queue'), { headers: this.authHeaders() }); }
+  getCrawlerQueue(params?: any) { return this.http.get(this.url('/api/crawler/queue'), { headers: this.authHeaders(), params }); }
   processCrawlerNext(payload: unknown) { return this.http.post(this.url('/api/crawler/process-next'), payload, { headers: this.authHeaders() }); }
   getModelDrift() { return this.http.get(this.url('/api/models/drift'), { headers: this.authHeaders() }); }
-  getExceptions() { return this.http.get(this.url('/api/observability/exceptions'), { headers: this.authHeaders() }); }
+  getForecasts() { return this.http.get(this.url('/api/admin/forecasts'), { headers: this.authHeaders() }); }
+  getRecommendations() { return this.http.get(this.url('/api/admin/recommendations'), { headers: this.authHeaders() }); }
+  getExceptions(params?: any) { return this.http.get(this.url('/api/observability/exceptions'), { headers: this.authHeaders(), params }); }
   createException(payload: unknown) { return this.http.post(this.url('/api/observability/exceptions'), payload, { headers: this.authHeaders() }); }
   runNightlyBackup(payload: unknown = {}) { return this.http.post(this.url('/api/admin/backups/nightly'), payload, { headers: this.authHeaders() }); }
   getNightlyBackups() { return this.http.get(this.url('/api/admin/backups/nightly'), { headers: this.authHeaders() }); }

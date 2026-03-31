@@ -166,6 +166,7 @@ async function buildApp() {
   const credentialingRoutes = require("./routes/credentialing");
   const adminRoutes = require("./routes/admin");
   const syncAuditRoutes = require("./routes/sync_audit");
+  const overviewRoutes = require("./routes/overview");
   const inventoryRoutes = require("./routes/inventory");
   const usersRoutes = require("./routes/users");
 
@@ -180,6 +181,7 @@ async function buildApp() {
   await app.register(credentialingRoutes, { permit });
   await app.register(adminRoutes, { permit });
   await app.register(syncAuditRoutes, { permit });
+  await app.register(overviewRoutes, { permit });
 
   app.setErrorHandler((error, request, reply) => {
     request.log.error(error);

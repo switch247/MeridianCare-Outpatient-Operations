@@ -39,7 +39,10 @@ function makeAuthedReq(token) {
 
 async function registerAndLogin(username, role) {
   const password = 'StrongPass123';
-  const register = await req('POST', '/api/auth/register', { username, password, role });
+  const adminLogin = await req('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200);
+  const adminToken = adminLogin.body.token;
+  const register = await makeAuthedReq(adminToken)('POST', '/api/admin/users', { username, password, role });
   assert.equal(register.status, 201);
   const login = await req('POST', '/api/auth/login', { username, password });
   assert.equal(login.status, 200);

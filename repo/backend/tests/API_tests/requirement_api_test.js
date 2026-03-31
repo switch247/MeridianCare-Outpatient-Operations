@@ -22,8 +22,10 @@ function request(method, path, body, token) {
 
 async function createUser(username, role) {
   const password = 'StrongPass123';
-  const r = await request('POST', '/api/auth/register', { username, password, role });
-  assert.equal(r.status, 201, `register ${role}`);
+  const adminLogin = await request('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200, 'login seeded admin');
+  const provision = await request('POST', '/api/admin/users', { username, password, role }, adminLogin.body.token);
+  assert.equal(provision.status, 201, `provision ${role}`);
   const l = await request('POST', '/api/auth/login', { username, password });
   assert.equal(l.status, 200, `login ${role}`);
   return { token: l.body.token, password };
@@ -39,6 +41,9 @@ async function createUser(username, role) {
 
   const badPassword = await request('POST', '/api/auth/register', { username: `bad_${suffix}`, password: 'short', role: 'physician' });
   assert.equal(badPassword.status, 400);
+  const escalate = await request('POST', '/api/auth/register', { username: `escalate_${suffix}`, password: 'StrongPass123', role: 'admin' });
+  assert.equal(escalate.status, 201);
+  assert.equal(escalate.body.role, 'guest');
 
   const patient = await request('POST', '/api/patients', {
     name: 'Req Test Patient',

@@ -1,5 +1,5 @@
 <div class="shell">
-  <ng-container *ngIf="!api.getToken(); else workspace">
+  <ng-container *ngIf="!auth.isAuthenticated(); else workspace">
     <section class="login-screen">
       <div class="login-brand">
         <p class="eyebrow">MeridianCare</p>
@@ -8,14 +8,8 @@
       </div>
       <form class="login-form" (ngSubmit)="login()">
         <h2>Local Sign In</h2>
-        <label>
-          Username
-          <input [(ngModel)]="username" name="username" required />
-        </label>
-        <label>
-          Password
-          <input [(ngModel)]="password" name="password" type="password" required />
-        </label>
+        <label>Username<input [(ngModel)]="username" name="username" required /></label>
+        <label>Password<input [(ngModel)]="password" name="password" type="password" required /></label>
         <div class="login-actions">
           <label class="remember">
             <input type="checkbox" [(ngModel)]="remember" name="remember" />
@@ -37,30 +31,22 @@
         </div>
 
         <nav class="nav">
-          <button (click)="selectedView.set('home')" [class.selected]="selectedView() === 'home'">Home</button>
-          <button *ngIf="currentUser()?.role === 'physician'" (click)="selectedView.set('encounters')" [class.selected]="selectedView() === 'encounters'">Encounters</button>
-          <button *ngIf="currentUser()?.role === 'pharmacist'" (click)="selectedView.set('pharmacy')" [class.selected]="selectedView() === 'pharmacy'">Pharmacy Queue</button>
-          <button (click)="selectedView.set('inventory')" [class.selected]="selectedView() === 'inventory'">Inventory</button>
-          <button (click)="selectedView.set('invoices')" [class.selected]="selectedView() === 'invoices'">Invoices</button>
-          <button *ngIf="currentUser()?.role === 'admin'" (click)="selectedView.set('users')" [class.selected]="selectedView() === 'users'">User Management</button>
-          <button *ngIf="currentUser()?.role === 'admin'" (click)="selectedView.set('credentialing')" [class.selected]="selectedView() === 'credentialing'">Credentialing</button>
-          <button *ngIf="currentUser()?.role === 'admin'" (click)="selectedView.set('adminops')" [class.selected]="selectedView() === 'adminops'">Admin Ops</button>
-          <button (click)="selectedView.set('myclinic')" [class.selected]="selectedView() === 'myclinic'">My Clinic</button>
-          <button (click)="selectedView.set('profile')" [class.selected]="selectedView() === 'profile'">Profile</button>
+          <a routerLink="/home" routerLinkActive="selected">Home</a>
+          <a *ngIf="hasRole(['physician'])" routerLink="/encounters" routerLinkActive="selected">Encounters</a>
+          <a *ngIf="hasRole(['pharmacist'])" routerLink="/pharmacy" routerLinkActive="selected">Pharmacy Queue</a>
+          <a *ngIf="hasRole(['billing','admin'])" routerLink="/billing" routerLinkActive="selected">Billing & Invoices</a>
+          <a *ngIf="hasRole(['inventory','pharmacist','admin'])" routerLink="/inventory" routerLinkActive="selected">Inventory</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/users" routerLinkActive="selected">User Management</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/credentialing" routerLinkActive="selected">Credentialing</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/admin-ops" routerLinkActive="selected">Admin Ops</a>
+          <a *ngIf="hasRole(['physician','pharmacist','billing','inventory','admin','auditor'])" routerLink="/my-clinic" routerLinkActive="selected">My Clinic</a>
         </nav>
 
-        <section class="checklist">
-          <h3>{{ role() | titlecase }} Workflow</h3>
-          <ol>
-            <li *ngFor="let step of activeSteps()">{{ step }}</li>
-          </ol>
-        </section>
-
-        <section class="profile">
-          <div class="avatar">{{ currentUser()?.username?.charAt(0)?.toUpperCase() }}</div>
+        <section class="profile" *ngIf="auth.currentUser() as user">
+          <div class="avatar">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
           <div>
-            <p class="name">{{ currentUser()?.username }}</p>
-            <p class="meta">{{ currentUser()?.role }}</p>
+            <p class="name">{{ user?.username }}</p>
+            <p class="meta">{{ user?.role }}</p>
           </div>
         </section>
 
@@ -71,48 +57,11 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Current role</p>
-            <h2>{{ role() | titlecase }}</h2>
-          </div>
-          <div class="actions">
-            <button (click)="runRoleAction()" [disabled]="busy()">{{ busy() ? 'Running...' : 'Run API Action' }}</button>
+            <h2>{{ auth.getRole() | titlecase }}</h2>
           </div>
         </header>
-
-        <section class="result" *ngIf="apiResult()">
-          <h3>Latest Response</h3>
-          <pre>{{ apiResult() | json }}</pre>
-        </section>
-
         <section class="surface">
-          <ng-container [ngSwitch]="selectedView()">
-            <ng-container *ngSwitchCase="'home'">
-              <div class="kpi-grid">
-                <article>
-                  <p class="label">Encounter Throughput</p>
-                  <p class="value">Live from API / KPIs</p>
-                </article>
-                <article>
-                  <p class="label">Pharmacy Queue</p>
-                  <p class="value">Role-triggered endpoint data</p>
-                </article>
-              </div>
-            </ng-container>
-            <ng-container *ngSwitchCase="'encounters'"><app-physician-encounter-page></app-physician-encounter-page></ng-container>
-            <ng-container *ngSwitchCase="'pharmacy'"><app-pharmacist-queue-page></app-pharmacist-queue-page></ng-container>
-            <ng-container *ngSwitchCase="'users'"><app-user-management></app-user-management></ng-container>
-            <ng-container *ngSwitchCase="'credentialing'"><app-credentialing-page></app-credentialing-page></ng-container>
-            <ng-container *ngSwitchCase="'adminops'"><app-admin-ops-page></app-admin-ops-page></ng-container>
-            <ng-container *ngSwitchCase="'inventory'"><app-inventory-page></app-inventory-page></ng-container>
-            <ng-container *ngSwitchCase="'invoices'"><app-invoices-page></app-invoices-page></ng-container>
-            <ng-container *ngSwitchCase="'myclinic'"><app-my-clinic></app-my-clinic></ng-container>
-            <ng-container *ngSwitchCase="'profile'">
-              <section class="profile-sheet">
-                <p><strong>Username:</strong> {{ currentUser()?.username }}</p>
-                <p><strong>Role:</strong> {{ currentUser()?.role }}</p>
-                <p *ngIf="currentUser()?.clinic_id"><strong>Clinic:</strong> {{ currentUser()?.clinic_id }}</p>
-              </section>
-            </ng-container>
-          </ng-container>
+          <router-outlet></router-outlet>
         </section>
       </main>
     </div>

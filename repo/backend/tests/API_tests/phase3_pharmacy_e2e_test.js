@@ -20,7 +20,9 @@ function req(method, path, body, token) {
 
 async function registerAndLogin(username, role) {
   const password = 'StrongPass123';
-  const created = await req('POST', '/api/auth/register', { username, password, role });
+  const adminLogin = await req('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200);
+  const created = await req('POST', '/api/admin/users', { username, password, role }, adminLogin.body.token);
   assert.equal(created.status, 201);
   const login = await req('POST', '/api/auth/login', { username, password });
   assert.equal(login.status, 200);

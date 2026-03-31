@@ -25,7 +25,9 @@ function req(method, path, body, token) {
   const username = `phase2_doc_${stamp}`;
   const password = 'StrongPass123';
 
-  const reg = await req('POST', '/api/auth/register', { username, password, role: 'physician' });
+  const adminLogin = await req('POST', '/api/auth/login', { username: 'admin@local', password: 'Password!123' });
+  assert.equal(adminLogin.status, 200);
+  const reg = await req('POST', '/api/admin/users', { username, password, role: 'physician' }, adminLogin.body.token);
   assert.equal(reg.status, 201);
   const login = await req('POST', '/api/auth/login', { username, password });
   assert.equal(login.status, 200);

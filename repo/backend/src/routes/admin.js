@@ -4,9 +4,28 @@ const { pool } = require('../db');
 const { encrypt } = require('../utils/crypto');
 const { env } = require('../config');
 const { computeBackoffSeconds, nextStage } = require('../services/crawler');
+const { createUser } = require('../services/users');
+const { forecastFromModel, topMedicationRecommendations, dateSeriesFromRows } = require('../services/forecasting');
 const logger = require('../lib/logger');
 
 async function adminRoutes(fastify, opts) {
+  fastify.post('/api/admin/users', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+    if (!request.user || request.user.role !== 'admin') return reply.code(403).send({ code: 403, msg: 'Admin role required' });
+    const b = request.body || {};
+    if (!b.username || !b.password || !b.role) return reply.code(400).send({ code: 400, msg: 'username, password, and role are required' });
+    const user = await createUser({
+      username: b.username,
+      password: b.password,
+      role: b.role,
+      clinicId: b.clinicId || request.user.clinic_id || null,
+      actorId: request.user.id,
+      actorRole: request.user.role,
+      correlationId: request.requestId,
+    });
+    reply.code(201);
+    return user;
+  });
+
   fastify.post('/api/crawler/run', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     logger.info(['handler', 'admin:crawler:run'], `crawl requested by ${request.user && request.user.username}`);
     const body = request.body || {};
@@ -110,6 +129,30 @@ async function adminRoutes(fastify, opts) {
        ORDER BY created_at DESC`,
     );
     return rows.rows.map((r) => ({ ...r, driftStatus: Number(r.drift_score) > 0.25 ? 'warning' : 'ok' }));
+  });
+
+  fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('*')] }, async () => {
+    const encounterRows = (await pool.query('SELECT created_at FROM encounters ORDER BY created_at ASC')).rows;
+    const series = dateSeriesFromRows(encounterRows, Date.now(), 30);
+    const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['visit_volume'])).rows[0];
+    const forecast = forecastFromModel(series, deployedModel);
+    return {
+      model: deployedModel ? deployedModel.version_tag : 'baseline-default',
+      algorithm: forecast.algorithm,
+      history: series,
+      forecast: forecast.points,
+    };
+  });
+
+  fastify.get('/api/admin/recommendations', { preHandler: [opts.permit('*')] }, async () => {
+    const rxRows = (await pool.query('SELECT drug_name FROM prescriptions ORDER BY updated_at DESC LIMIT 500')).rows;
+    const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['recommendations'])).rows[0];
+    const top = topMedicationRecommendations(rxRows, 5);
+    return {
+      model: deployedModel ? deployedModel.version_tag : 'baseline-similarity',
+      algorithm: deployedModel ? deployedModel.algorithm : 'frequency_baseline',
+      recommendations: top,
+    };
   });
 
   fastify.post('/api/models/:id/rollback', { preHandler: [opts.permit('*')] }, async (request, reply) => {

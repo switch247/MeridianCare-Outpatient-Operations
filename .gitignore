@@ -113,3 +113,4 @@ build/
 postgres/
 backups/
 data/
+sessions/

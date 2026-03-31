@@ -71,6 +71,21 @@ import { ApiService } from '../services/api.service';
         </ul>
       </article>
 
+      <article class="panel">
+        <h4>Variance Report</h4>
+        <table>
+          <thead><tr><th>Item ID</th><th>Positive Adjustments</th><th>Negative Adjustments</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let v of variance">
+              <td>{{ v.item_id }}</td>
+              <td>{{ v.positive_adjustments }}</td>
+              <td>{{ v.negative_adjustments }}</td>
+            </tr>
+            <tr *ngIf="!variance.length"><td colspan="3">No variance records.</td></tr>
+          </tbody>
+        </table>
+      </article>
+
       <p class="msg">{{ message }}</p>
     </section>
   `,
@@ -93,6 +108,7 @@ import { ApiService } from '../services/api.service';
 export class InventoryPageComponent {
   items: any[] = [];
   alerts: any[] = [];
+  variance: any[] = [];
   message = '';
   openCreate = false;
   selectedItem: any = null;
@@ -120,6 +136,7 @@ export class InventoryPageComponent {
   load() {
     this.api.getInventory().subscribe({ next: (res: any) => { this.items = res || []; }, error: () => { this.items = []; } });
     this.api.getLowStockAlerts().subscribe({ next: (res: any) => { this.alerts = res || []; }, error: () => { this.alerts = []; } });
+    this.api.getInventoryVariance().subscribe({ next: (res: any) => { this.variance = res || []; }, error: () => { this.variance = []; } });
   }
 
   createItem() {
