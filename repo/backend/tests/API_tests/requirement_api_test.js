@@ -47,6 +47,18 @@ async function createUser(username, role) {
     contraindications: [{ drug: 'warfarin', severity: 'high' }],
   }, physician.token);
   assert.equal(patient.status, 201);
+  const physicianPatientView = await request('GET', '/api/patients', null, physician.token);
+  assert.equal(physicianPatientView.status, 200);
+  const physicianTarget = (physicianPatientView.body || []).find((p) => p.id === patient.body.id);
+  if (physicianTarget) {
+    assert.equal(physicianTarget.name, 'Req Test Patient');
+  }
+  const maskedPatientList = await request('GET', '/api/patients', null, auditor.token);
+  assert.equal(maskedPatientList.status, 200);
+  const maskedTarget = (maskedPatientList.body || []).find((p) => p.id === patient.body.id);
+  if (maskedTarget) {
+    assert.notEqual(maskedTarget.name, 'Req Test Patient');
+  }
 
   const icd = await request('GET', '/api/icd?q=J06', null, physician.token);
   assert.equal(icd.status, 200);
@@ -63,6 +75,9 @@ async function createUser(username, role) {
 
   const signConflict = await request('POST', `/api/encounters/${encounter.body.id}/sign`, { expectedVersion: 999 }, physician.token);
   assert.equal(signConflict.status, 409);
+  const encounterList = await request('GET', `/api/encounters?patientId=${patient.body.id}`, null, physician.token);
+  assert.equal(encounterList.status, 200);
+  assert.ok(Array.isArray(encounterList.body));
   const sign = await request('POST', `/api/encounters/${encounter.body.id}/sign`, { expectedVersion: 1 }, physician.token);
   assert.equal(sign.status, 200);
 
@@ -87,17 +102,23 @@ async function createUser(username, role) {
   assert.equal(queue.status, 200);
   const rxId = override.body.id;
 
+  const rxItem = await request('POST', '/api/inventory/items', { sku: `RX-${suffix}`, name: 'amoxicillin', lowStockThreshold: 3 }, pharmacist.token);
+  assert.equal(rxItem.status, 201);
+  const rxStock = await request('POST', '/api/inventory/movements', { itemId: rxItem.body.id, movementType: 'receive', quantity: 25 }, pharmacist.token);
+  assert.equal(rxStock.status, 200);
+
   const approve = await request('POST', `/api/pharmacy/${rxId}/action`, { action: 'approve', expectedVersion: 1 }, pharmacist.token);
   assert.equal(approve.status, 200);
-  const dispense = await request('POST', `/api/pharmacy/${rxId}/action`, { action: 'dispense', expectedVersion: 2 }, pharmacist.token);
+  const dispense = await request('POST', `/api/pharmacy/${rxId}/action`, { action: 'dispense', expectedVersion: 2, inventoryItemId: rxItem.body.id, dispenseQuantity: 20 }, pharmacist.token);
   assert.equal(dispense.status, 200);
+  assert.equal(dispense.body.dispensed_quantity, 20);
   const voidAfter = await request('POST', `/api/pharmacy/${rxId}/action`, { action: 'void', reason: 'too late' }, pharmacist.token);
   assert.equal(voidAfter.status, 400);
 
   const badQty = await request('POST', '/api/billing/price', { lines: [{ quantity: 0, unitPrice: 50 }] }, billing.token);
   assert.equal(badQty.status, 400);
   const price = await request('POST', '/api/billing/price', {
-    lines: [{ quantity: 2, unitPrice: 120 }],
+    lines: [{ chargeType: 'visit_code', quantity: 2, unitPrice: 120 }],
     planPercent: 10, couponAmount: 20, thresholdRule: { threshold: 200, off: 25 },
   }, billing.token);
   assert.equal(price.status, 200);
@@ -109,16 +130,16 @@ async function createUser(username, role) {
 
   const inv = await request('POST', '/api/invoices', {
     patientId: patient.body.id,
-    lines: [{ quantity: 1, unitPrice: 100 }],
+    lines: [{ chargeType: 'visit_code', quantity: 1, unitPrice: 100 }],
     planPercent: 0, couponAmount: 0, thresholdRule: { threshold: 200, off: 25 },
   }, billing.token);
   assert.equal(inv.status, 201);
-  const invPayConflict = await request('POST', `/api/invoices/${inv.body.id}/payment`, { expectedVersion: 999, reference: 'cash' }, billing.token);
+  const invPayConflict = await request('POST', `/api/invoices/${inv.body.id}/payment`, { expectedVersion: 999, tenderType: 'cash', reference: 'cash' }, billing.token);
   assert.equal(invPayConflict.status, 409);
-  const invPay = await request('POST', `/api/invoices/${inv.body.id}/payment`, { expectedVersion: inv.body.version, reference: 'cash-ok' }, billing.token);
+  const invPay = await request('POST', `/api/invoices/${inv.body.id}/payment`, { expectedVersion: inv.body.version, tenderType: 'cash', reference: 'cash-ok' }, billing.token);
   assert.equal(invPay.status, 200);
 
-  const item = await request('POST', '/api/inventory/items', { sku: `SKU-${suffix}`, name: 'Amox', lowStockThreshold: 3 }, pharmacist.token);
+  const item = await request('POST', '/api/inventory/items', { sku: `SKU-${suffix}`, name: 'Bandage', lowStockThreshold: 3 }, pharmacist.token);
   assert.equal(item.status, 201);
   const recv = await request('POST', '/api/inventory/movements', { itemId: item.body.id, movementType: 'receive', quantity: 5 }, pharmacist.token);
   assert.equal(recv.status, 200);
@@ -155,7 +176,7 @@ async function createUser(username, role) {
   assert.equal(kpis.status, 200);
 
   const backup = await request('POST', '/api/admin/backups/nightly', {}, admin.token);
-  assert.equal(backup.status, 200);
+  assert.equal(backup.status, 201);
   const drill = await request('POST', '/api/admin/backups/restore-drill', { status: 'completed', notes: 'monthly test' }, admin.token);
   assert.equal(drill.status, 201);
 
@@ -178,6 +199,14 @@ async function createUser(username, role) {
   }
   const locked = await request('POST', '/api/auth/login', { username: lockUser, password: 'StrongPass123' });
   assert.equal(locked.status, 423);
+  const usersRows = await request('GET', '/api/users', null, admin.token);
+  const lockTarget = (usersRows.body || []).find((u) => u.username === lockUser);
+  if (lockTarget) {
+    const unlock = await request('POST', `/api/auth/unlock/${lockTarget.id}`, {}, admin.token);
+    assert.equal(unlock.status, 200);
+    const unlocked = await request('POST', '/api/auth/login', { username: lockUser, password: 'StrongPass123' });
+    assert.equal(unlocked.status, 200);
+  }
 
   console.log('Requirement API tests passed');
 })();

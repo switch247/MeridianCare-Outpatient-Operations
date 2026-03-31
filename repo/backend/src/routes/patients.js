@@ -4,12 +4,26 @@ const { env } = require('../config');
 const logger = require('../lib/logger');
 
 async function patientsRoutes(fastify, opts) {
+  const clinicalRoles = new Set(['physician', 'pharmacist', 'admin']);
+
+  function maskName(name) {
+    if (!name) return name;
+    const trimmed = String(name).trim();
+    if (trimmed.length <= 2) return `${trimmed[0] || ''}*`;
+    return `${trimmed[0]}${'*'.repeat(Math.max(1, trimmed.length - 2))}${trimmed[trimmed.length - 1]}`;
+  }
+
   // helper to scrub PHI from responses
-  function scrubPatient(row) {
+  function scrubPatient(row, role) {
     if (!row) return row;
     const { ssn_encrypted, ...rest } = row;
+    const shouldMask = role && !clinicalRoles.has(role);
     // do not expose encrypted SSN; provide presence flag only
-    return { ...rest, has_ssn: !!ssn_encrypted };
+    return {
+      ...rest,
+      name: shouldMask ? maskName(rest.name) : rest.name,
+      has_ssn: !!ssn_encrypted,
+    };
   }
 
   // create patient (physician or admin)
@@ -18,21 +32,21 @@ async function patientsRoutes(fastify, opts) {
     const { name, ssn, allergies = [], contraindications = [] } = request.body || {};
     const r = await pool.query('INSERT INTO patients(name,ssn_encrypted,allergies,contraindications) VALUES($1,$2,$3,$4) RETURNING *', [name, encrypt(ssn || '', env.PHI_KEY), JSON.stringify(allergies), JSON.stringify(contraindications)]);
     logger.info(['handler','patients:create','created'], `patient=${r.rows[0].id}`);
-    reply.code(201); return scrubPatient(r.rows[0]);
+    reply.code(201); return scrubPatient(r.rows[0], request.user && request.user.role);
   });
 
   // list patients (for roles with read access)
   fastify.get('/api/patients', { preHandler: [opts.permit('patient:read')] }, async (request) => {
     logger.info(['handler','patients:list'],'list patients');
     const r = await pool.query('SELECT * FROM patients ORDER BY name LIMIT 200');
-    return r.rows.map(scrubPatient);
+    return r.rows.map((row) => scrubPatient(row, request.user && request.user.role));
   });
 
   // get patient
   fastify.get('/api/patients/:id', { preHandler: [opts.permit('patient:read')] }, async (request, reply) => {
     const r = await pool.query('SELECT * FROM patients WHERE id=$1', [request.params.id]);
     if (!r.rows.length) return reply.code(404).send({ code: 404, msg: 'Patient not found' });
-    return scrubPatient(r.rows[0]);
+    return scrubPatient(r.rows[0], request.user && request.user.role);
   });
 
   // update patient
@@ -51,7 +65,7 @@ async function patientsRoutes(fastify, opts) {
     const q = `UPDATE patients SET ${updateFields.join(',')}, updated_at=NOW() WHERE id=$${idx} RETURNING *`;
     const r = await pool.query(q, values);
     if (!r.rows.length) return reply.code(404).send({ code:404, msg:'Patient not found' });
-    return scrubPatient(r.rows[0]);
+    return scrubPatient(r.rows[0], request.user && request.user.role);
   });
 
   // delete patient (admin only)

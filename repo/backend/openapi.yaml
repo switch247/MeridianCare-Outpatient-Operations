@@ -4,17 +4,31 @@ paths:
   /api/auth/login: { post: { summary: Local login } }
   /api/encounters/{id}/sign: { post: { summary: Sign encounter with diagnosis requirement } }
   /api/prescriptions: { post: { summary: Submit prescription with hard-stop override policy } }
+  /api/pharmacy/queue: { get: { summary: Pharmacist review queue with inventory availability } }
   /api/pharmacy/{id}/action: { post: { summary: Approve/dispense/void transitions } }
+  /api/pharmacy/{id}/movements: { get: { summary: Inventory linkage history for a prescription } }
+  /api/pharmacy/{id}/return: { post: { summary: Record return linked to original dispense movement } }
   /api/billing/price: { post: { summary: Discount engine in fixed order } }
+  /api/invoices: { get: { summary: List invoices }, post: { summary: Create invoice with manual-payment lifecycle and optional home-delivery shipping } }
+  /api/invoices/{id}: { get: { summary: Invoice details } }
   /api/invoices/{id}/payment: { post: { summary: Manual payment entry } }
+  /api/invoices/{id}/cancel: { post: { summary: Cancel unpaid invoice } }
+  /api/inventory/items: { get: { summary: List inventory catalog for on-hand management }, post: { summary: Create inventory item with lot/serial flags } }
   /api/inventory/movements: { post: { summary: Inventory lifecycle movements } }
+  /api/inventory/alerts/low-stock: { get: { summary: Low-stock alert feed } }
+  /api/inventory/reports/variance: { get: { summary: Count variance summary report } }
   /api/credentialing/onboard: { post: { summary: 30-day license eligibility check } }
   /api/credentialing/import: { post: { summary: Batch import with row-level validation errors } }
+  /api/credentialing: { get: { summary: List credentialing profiles for admin workflows } }
   /api/shipping/templates: { get: { summary: Local zone-based shipping templates } }
   /api/crawler/run: { post: { summary: collect-parse-store orchestration } }
+  /api/crawler/queue: { get: { summary: Priority queue and checkpoint status } }
+  /api/crawler/process-next: { post: { summary: Process next ready job with node assignment } }
   /api/crawler/{id}/retry: { post: { summary: Exponential backoff retry scheduling for crawler jobs } }
   /api/models/register: { post: { summary: model version register + rollback semantics } }
+  /api/models/drift: { get: { summary: Drift monitoring summary for model versions } }
   /api/models/{id}/rollback: { post: { summary: One-click rollback to prior deployed version } }
+  /api/observability/exceptions: { get: { summary: Exception alert feed in admin console }, post: { summary: Record exception alert } }
   /api/admin/backups/nightly: { post: { summary: encrypted nightly backup schedule } }
   /api/admin/backups/restore-drill: { post: { summary: Record monthly restore drill evidence }, get: { summary: List restore drill history } }
   /api/sync/enqueue: { post: { summary: Queue offline client mutation for later sync } }

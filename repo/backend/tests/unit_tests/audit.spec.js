@@ -1,8 +1,8 @@
 // verify writeAudit persists correlation id into event_data
-vi.mock('../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
+vi.mock('../../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
 
-const { pool } = require('../src/db');
-const { writeAudit } = require('../src/lib/audit');
+const { pool } = require('../../src/db');
+const { writeAudit } = require('../../src/lib/audit');
 
 describe('audit writeCorrelation', () => {
   beforeEach(() => { pool.query = vi.fn().mockResolvedValue({}); });

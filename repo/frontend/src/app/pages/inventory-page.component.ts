@@ -8,98 +8,153 @@ import { ApiService } from '../services/api.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="panel">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">Inventory</h2>
-        <div>
-          <button (click)="openCreate()" class="px-3 py-1 bg-black text-white rounded">New Item</button>
-        </div>
-      </div>
+    <section class="inv-wrap">
+      <header>
+        <h3>Inventory Operations</h3>
+        <button (click)="openCreate = !openCreate">{{ openCreate ? 'Close' : 'New Item' }}</button>
+      </header>
 
-      <div class="overflow-auto bg-white rounded shadow">
-        <table class="w-full table-auto">
-          <thead class="border-b">
-            <tr class="text-left">
-              <th class="px-4 py-2">SKU</th>
-              <th class="px-4 py-2">Name</th>
-              <th class="px-4 py-2">On Hand</th>
-              <th class="px-4 py-2">Location</th>
-              <th class="px-4 py-2">Actions</th>
-            </tr>
-          </thead>
+      <article class="panel" *ngIf="openCreate">
+        <h4>Create Item</h4>
+        <div class="grid">
+          <label>SKU<input [(ngModel)]="createModel.sku" /></label>
+          <label>Name<input [(ngModel)]="createModel.name" /></label>
+          <label>Low Stock Threshold<input type="number" [(ngModel)]="createModel.lowStockThreshold" /></label>
+          <label>Lot Tracking<input type="checkbox" [(ngModel)]="createModel.lotTracking" /></label>
+          <label>Serial Tracking<input type="checkbox" [(ngModel)]="createModel.serialTracking" /></label>
+        </div>
+        <button (click)="createItem()">Create</button>
+      </article>
+
+      <article class="panel">
+        <h4>Inventory Items</h4>
+        <table>
+          <thead><tr><th>SKU</th><th>Name</th><th>On Hand</th><th>Low Threshold</th><th>Actions</th></tr></thead>
           <tbody>
-            <tr *ngFor="let i of items" class="border-b">
-              <td class="px-4 py-3">{{ i.sku }}</td>
-              <td class="px-4 py-3">{{ i.name }}</td>
-              <td class="px-4 py-3">{{ i.on_hand }}</td>
-              <td class="px-4 py-3">{{ i.location || '-' }}</td>
-              <td class="px-4 py-3">
-                <button (click)="openEdit(i)" class="px-2 py-1 mr-2">Edit</button>
-                <button (click)="deleteItem(i.id)" class="px-2 py-1 text-red-600">Delete</button>
-              </td>
+            <tr *ngFor="let i of items">
+              <td>{{ i.sku }}</td>
+              <td>{{ i.name }}</td>
+              <td>{{ i.on_hand }}</td>
+              <td>{{ i.low_stock_threshold }}</td>
+              <td><button class="ghost" (click)="selectForMove(i)">Move</button></td>
             </tr>
-            <tr *ngIf="items.length === 0">
-              <td class="px-4 py-6" colspan="5">No inventory items.</td>
-            </tr>
+            <tr *ngIf="!items.length"><td colspan="5">No inventory items.</td></tr>
           </tbody>
         </table>
-      </div>
+      </article>
 
-      <!-- Modal -->
-      <div *ngIf="modalOpen" class="fixed inset-0 flex items-center justify-center" style="z-index:40;">
-        <div class="absolute inset-0 bg-black opacity-40" (click)="closeModal()"></div>
-        <div class="bg-white rounded shadow p-6 z-50 w-full max-w-md">
-          <h3 class="text-lg font-semibold mb-3">{{ modalMode === 'create' ? 'New Item' : 'Edit Item' }}</h3>
-          <form (ngSubmit)="saveModal()" class="space-y-3">
-            <div>
-              <label class="text-sm">SKU</label>
-              <input [(ngModel)]="modalModel.sku" name="sku" required class="w-full mt-1" />
-            </div>
-            <div>
-              <label class="text-sm">Name</label>
-              <input [(ngModel)]="modalModel.name" name="name" required class="w-full mt-1" />
-            </div>
-            <div>
-              <label class="text-sm">On hand</label>
-              <input type="number" [(ngModel)]="modalModel.on_hand" name="on_hand" class="w-full mt-1" />
-            </div>
-            <div>
-              <label class="text-sm">Location</label>
-              <input [(ngModel)]="modalModel.location" name="location" class="w-full mt-1" />
-            </div>
-            <div class="flex gap-2 justify-end mt-4">
-              <button type="button" (click)="closeModal()" class="px-3 py-1">Cancel</button>
-              <button type="submit" class="px-3 py-1 bg-black text-white rounded">{{ modalMode === 'create' ? 'Create' : 'Save' }}</button>
-            </div>
-          </form>
+      <article class="panel" *ngIf="selectedItem">
+        <h4>Stock Movement - {{ selectedItem.name }}</h4>
+        <div class="grid">
+          <label>Type
+            <select [(ngModel)]="moveModel.movementType">
+              <option value="receive">receive</option>
+              <option value="dispense">dispense</option>
+              <option value="return">return</option>
+              <option value="count_adjust_up">count_adjust_up</option>
+              <option value="count_adjust_down">count_adjust_down</option>
+            </select>
+          </label>
+          <label>Quantity<input type="number" min="1" [(ngModel)]="moveModel.quantity" /></label>
+          <label>Lot<input [(ngModel)]="moveModel.lot" /></label>
+          <label>Serial<input [(ngModel)]="moveModel.serial" /></label>
+          <label>Reason<input [(ngModel)]="moveModel.reason" /></label>
         </div>
-      </div>
+        <button (click)="applyMovement()">Apply Movement</button>
+      </article>
+
+      <article class="panel">
+        <h4>Low Stock Alerts</h4>
+        <ul>
+          <li *ngFor="let a of alerts">{{ a.sku }} - {{ a.name }} ({{ a.on_hand }}/{{ a.low_stock_threshold }})</li>
+          <li *ngIf="!alerts.length">No low stock alerts.</li>
+        </ul>
+      </article>
+
+      <p class="msg">{{ message }}</p>
     </section>
-  `
+  `,
+  styles: [`
+    .inv-wrap { display: grid; gap: .9rem; }
+    header { display:flex; justify-content:space-between; align-items:center; }
+    h3,h4 { margin: 0; }
+    .panel { border:1px solid #d4ded6; background:#fbfcf8; padding:1rem; }
+    .grid { display:grid; gap:.5rem; grid-template-columns: repeat(5, minmax(120px,1fr)); margin:.5rem 0; }
+    label { display:grid; gap:.2rem; font-size:.82rem; color:#5f7469; }
+    input, select { border:1px solid #d4ded6; padding:.45rem; }
+    button { border:1px solid #0a4f38; background:#0f6a4b; color:#fff; padding:.4rem .7rem; }
+    .ghost { background:transparent; color:#10231b; border-color:#c8d7cd; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border-bottom:1px solid #e5ece7; text-align:left; padding:.45rem; font-size:.84rem; }
+    .msg { margin:0; color:#8b2a2a; }
+    @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+  `]
 })
 export class InventoryPageComponent {
   items: any[] = [];
-  modalOpen = false;
-  modalMode: 'create'|'edit' = 'create';
-  editingId: string | null = null;
-  modalModel: any = { sku: '', name: '', on_hand: 0, location: '' };
+  alerts: any[] = [];
+  message = '';
+  openCreate = false;
+  selectedItem: any = null;
 
-  constructor(private api: ApiService) { this.load(); }
+  createModel: any = {
+    sku: '',
+    name: '',
+    lowStockThreshold: 10,
+    lotTracking: false,
+    serialTracking: false,
+  };
 
-  load() { this.api.getInventory().subscribe({ next: (res: any) => this.items = res || [], error: () => this.items = [] }); }
+  moveModel: any = {
+    movementType: 'receive',
+    quantity: 1,
+    lot: '',
+    serial: '',
+    reason: '',
+  };
 
-  openCreate() { this.modalMode = 'create'; this.modalModel = { sku: '', name: '', on_hand: 0, location: '' }; this.modalOpen = true; }
-  openEdit(i: any) { this.modalMode = 'edit'; this.editingId = i.id; this.modalModel = { sku: i.sku, name: i.name, on_hand: i.on_hand, location: i.location }; this.modalOpen = true; }
-  closeModal() { this.modalOpen = false; this.editingId = null; }
-
-  saveModal() {
-    if (this.modalMode === 'create') {
-      this.api.createInventoryItem(this.modalModel).subscribe({ next: () => { this.closeModal(); this.load(); } });
-      return;
-    }
-    if (!this.editingId) return this.closeModal();
-    this.api.updateInventoryItem(this.editingId, this.modalModel).subscribe({ next: () => { this.closeModal(); this.load(); } });
+  constructor(private api: ApiService) {
+    this.load();
   }
 
-  deleteItem(id: string) { if (!confirm('Delete item?')) return; this.api.deleteInventoryItem(id).subscribe({ next: () => this.load() }); }
+  load() {
+    this.api.getInventory().subscribe({ next: (res: any) => { this.items = res || []; }, error: () => { this.items = []; } });
+    this.api.getLowStockAlerts().subscribe({ next: (res: any) => { this.alerts = res || []; }, error: () => { this.alerts = []; } });
+  }
+
+  createItem() {
+    this.api.createInventoryItem(this.createModel).subscribe({
+      next: () => {
+        this.message = 'Inventory item created.';
+        this.openCreate = false;
+        this.createModel = { sku: '', name: '', lowStockThreshold: 10, lotTracking: false, serialTracking: false };
+        this.load();
+      },
+      error: (err: any) => { this.message = err?.error?.msg || 'Create item failed.'; },
+    });
+  }
+
+  selectForMove(item: any) {
+    this.selectedItem = item;
+    this.moveModel = { movementType: 'receive', quantity: 1, lot: '', serial: '', reason: '' };
+  }
+
+  applyMovement() {
+    if (!this.selectedItem) return;
+    const payload = {
+      itemId: this.selectedItem.id,
+      movementType: this.moveModel.movementType,
+      quantity: Number(this.moveModel.quantity),
+      lot: this.moveModel.lot || undefined,
+      serial: this.moveModel.serial || undefined,
+      reason: this.moveModel.reason || undefined,
+    };
+    this.api.createInventoryMovement(payload).subscribe({
+      next: () => {
+        this.message = 'Movement applied.';
+        this.load();
+      },
+      error: (err: any) => { this.message = err?.error?.msg || 'Movement failed.'; },
+    });
+  }
 }

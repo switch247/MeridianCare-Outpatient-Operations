@@ -83,6 +83,17 @@ async function authRoutes(fastify, opts) {
     const rows = (await pool.query('SELECT id,user_id,jti,kiosk,revoked,last_active_at,expires_at,created_at FROM sessions ORDER BY created_at DESC LIMIT 100')).rows;
     return rows;
   });
+
+  fastify.post('/api/auth/unlock/:id', { preHandler: [opts.permit('admin:unlock')] }, async (request, reply) => {
+    const userId = request.params.id;
+    const result = await pool.query(
+      'UPDATE users SET failed_attempts=0, lockout_until=NULL WHERE id=$1 RETURNING id,username,role',
+      [userId],
+    );
+    if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'User not found' });
+    logger.info(['handler','auth:unlock'], `account unlocked id=${userId} by ${request.user && request.user.username}`);
+    return { ok: true, user: result.rows[0] };
+  });
 }
 
 module.exports = authRoutes;

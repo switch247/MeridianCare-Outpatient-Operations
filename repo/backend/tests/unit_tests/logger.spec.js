@@ -2,13 +2,13 @@ describe('logger sanitize', () => {
   let logger;
   beforeEach(() => {
     // ensure fresh module load
-    delete require.cache[require.resolve('../src/lib/logger')];
-    logger = require('../src/lib/logger');
+    delete require.cache[require.resolve('../../src/lib/logger')];
+    logger = require('../../src/lib/logger');
   });
 
   afterEach(() => {
     // clear module cache so tests are isolated
-    try { delete require.cache[require.resolve('../src/lib/logger')]; } catch (e) {}
+    try { delete require.cache[require.resolve('../../src/lib/logger')]; } catch (e) {}
   });
 
   it('sanitizes sensitive keys in objects', () => {
@@ -22,7 +22,7 @@ describe('logger sanitize', () => {
   });
 
   it('passes sanitized meta to pino.info', () => {
-    const mod = require('../src/lib/logger');
+    const mod = require('../../src/lib/logger');
     const spy = vi.spyOn(mod.pino, 'info').mockImplementation(() => {});
     const meta = { username: 'bob', password: 'p', secret: 's', details: { ssn_encrypted: 'x' } };
     mod.info(['test','unit'], 'message here', meta);
@@ -35,7 +35,7 @@ describe('logger sanitize', () => {
   });
 
   it('plugin registers hooks and sets X-Request-Id', async () => {
-    const mod = require('../src/lib/logger');
+    const mod = require('../../src/lib/logger');
     const hooks = {};
     const mockFastify = { decorate: vi.fn(), addHook: (name, fn) => { hooks[name] = fn; } };
     await mod.plugin(mockFastify, {});

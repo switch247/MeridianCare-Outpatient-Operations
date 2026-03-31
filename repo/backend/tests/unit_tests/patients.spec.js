@@ -1,20 +1,22 @@
 const Fastify = require('fastify');
 
 // mock db and crypto
-vi.mock('../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
-vi.mock('../src/utils/crypto', () => ({ encrypt: (s) => `enc:${s}` }));
+vi.mock('../../src/db', () => ({ pool: { query: vi.fn() }, initDb: vi.fn() }));
+vi.mock('../../src/utils/crypto', () => ({ encrypt: (s) => `enc:${s}` }));
 
-const { pool } = require('../src/db');
+const { pool } = require('../../src/db');
 
 describe('patients routes', () => {
   let app;
+  let role;
   beforeEach(async () => {
     // reset/mock pool.query
     pool.query = vi.fn();
+    role = 'physician';
     app = Fastify({ logger: false });
-    const patientsRoutes = require('../src/routes/patients');
+    const patientsRoutes = require('../../src/routes/patients');
     // permit that allows through
-    await app.register(patientsRoutes, { permit: (p) => async (req, reply) => {} });
+    await app.register(patientsRoutes, { permit: () => async (req) => { req.user = { id: 'u1', role }; } });
     await app.ready();
   });
 
@@ -58,5 +60,17 @@ describe('patients routes', () => {
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.payload);
     expect(body.deleted).toBe(true);
+  });
+
+  it('masks patient name for non-clinical role views', async () => {
+    role = 'billing';
+    pool.query.mockResolvedValueOnce({
+      rows: [{ id: '1', name: 'Alice Patient', ssn_encrypted: 'x', allergies: '[]', contraindications: '[]' }],
+    });
+    const res = await app.inject({ method: 'GET', url: '/api/patients' });
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body[0].name).not.toBe('Alice Patient');
+    expect(body[0].has_ssn).toBe(true);
   });
 });

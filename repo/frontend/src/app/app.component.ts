@@ -5,15 +5,18 @@ import { ApiService } from './services/api.service';
 import { UserManagementComponent } from './pages/user-management.component';
 import { MyClinicComponent } from './pages/my-clinic.component';
 import { InventoryPageComponent } from './pages/inventory-page.component';
-import { BillingPageComponent } from './pages/billing-page.component';
 import { InvoicesPageComponent } from './pages/invoices-page.component';
+import { CredentialingPageComponent } from './pages/credentialing-page.component';
+import { PhysicianEncounterPageComponent } from './pages/physician-encounter-page.component';
+import { PharmacistQueuePageComponent } from './pages/pharmacist-queue-page.component';
+import { AdminOpsPageComponent } from './pages/admin-ops-page.component';
 
 type Role = 'physician'|'pharmacist'|'billing'|'inventory'|'admin'|'auditor';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, UserManagementComponent, MyClinicComponent, InventoryPageComponent, BillingPageComponent, InvoicesPageComponent],
+  imports: [CommonModule, FormsModule, UserManagementComponent, MyClinicComponent, InventoryPageComponent, InvoicesPageComponent, CredentialingPageComponent, PhysicianEncounterPageComponent, PharmacistQueuePageComponent, AdminOpsPageComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -68,8 +71,9 @@ export class AppComponent {
         this.role.set((res.role as Role) || 'physician');
         this.api.setRole(res.role || 'physician');
         // default landing per role
-        if (res.role === 'admin') this.selectedView.set('users');
-        else if (res.role === 'physician') this.selectedView.set('home');
+        if (res.role === 'admin') this.selectedView.set('adminops');
+        else if (res.role === 'physician') this.selectedView.set('encounters');
+        else if (res.role === 'pharmacist') this.selectedView.set('pharmacy');
         else this.selectedView.set('home');
         this.message.set(`Logged in as ${res.role}`);
         this.busy.set(false);

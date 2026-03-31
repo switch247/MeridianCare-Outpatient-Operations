@@ -8,138 +8,105 @@ import { ApiService } from '../services/api.service';
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <section class="panel">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-lg font-semibold">User Management</h2>
-        <div>
-          <button (click)="openCreate()" class="px-3 py-1 bg-black text-white rounded">Create User</button>
+    <section class="um-wrap">
+      <header>
+        <h3>User Management</h3>
+        <button (click)="openCreate()">Create User</button>
+      </header>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Username</th>
+            <th>Role</th>
+            <th>Lockout</th>
+            <th>Clinic</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of users">
+            <td>{{ u.username }}</td>
+            <td>{{ u.role }}</td>
+            <td>{{ u.lockout_until ? 'Locked' : 'Active' }}</td>
+            <td>{{ u.clinic_id || '-' }}</td>
+            <td class="actions">
+              <button class="ghost" (click)="openEdit(u)">Edit</button>
+              <button class="ghost" *ngIf="u.lockout_until" (click)="unlock(u.id)">Unlock</button>
+              <button class="danger" (click)="confirmDelete(u.id)">Delete</button>
+            </td>
+          </tr>
+          <tr *ngIf="users.length === 0"><td colspan="5">No users.</td></tr>
+        </tbody>
+      </table>
+
+      <div *ngIf="modalOpen" class="modal-mask">
+        <div class="modal">
+          <h4>{{ modalMode === 'create' ? 'Create User' : 'Edit User' }}</h4>
+          <label>Username<input [(ngModel)]="modalModel.username" /></label>
+          <label *ngIf="modalMode === 'create'">Password<input type="password" [(ngModel)]="modalModel.password" /></label>
+          <label>Role
+            <select [(ngModel)]="modalModel.role">
+              <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+            </select>
+          </label>
+          <div class="modal-actions">
+            <button class="ghost" (click)="closeModal()">Cancel</button>
+            <button (click)="saveModal()">{{ modalMode === 'create' ? 'Create' : 'Save' }}</button>
+          </div>
         </div>
       </div>
 
-      <div class="overflow-auto bg-white rounded shadow">
-        <table class="w-full table-auto">
-          <thead class="border-b">
-            <tr class="text-left">
-              <th class="px-4 py-2">Username</th>
-              <th class="px-4 py-2">Role</th>
-              <th class="px-4 py-2">Clinic</th>
-              <th class="px-4 py-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let u of users" class="border-b">
-              <td class="px-4 py-3">{{ u.username }}</td>
-              <td class="px-4 py-3">{{ u.role }}</td>
-              <td class="px-4 py-3">{{ u.clinic_id || '-' }}</td>
-              <td class="px-4 py-3">
-                  <div style="position:relative; display:inline-block">
-                    <button (click)="toggleRowMenu(u.id)" class="px-2 py-1" style="background:#f3f4f6;color:#111;border-radius:6px">Actions ▾</button>
-                    <div *ngIf="rowMenuOpen === u.id" class="bg-white border shadow rounded mt-1" style="position:absolute; right:0; z-index:20; min-width:140px;">
-                      <button class="w-full text-left px-3 py-2" style="background:#fff;color:#111" (click)="openEdit(u)">Edit</button>
-                      <button class="w-full text-left px-3 py-2" style="background:#fff;color:#b91c1c" (click)="confirmDelete(u.id)">Delete</button>
-                    </div>
-                  </div>
-              </td>
-            </tr>
-            <tr *ngIf="users.length === 0">
-              <td class="px-4 py-6" colspan="4">No users found.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Modal -->
-      <div *ngIf="modalOpen" class="fixed inset-0 flex items-center justify-center" style="z-index:40;">
-        <div class="absolute inset-0 bg-black opacity-40" (click)="closeModal()"></div>
-        <div class="bg-white rounded shadow p-6 z-50 w-full max-w-md">
-          <h3 class="text-lg font-semibold mb-3">{{ modalMode === 'create' ? 'Create User' : 'Edit User' }}</h3>
-          <form (ngSubmit)="saveModal()" class="space-y-3">
-            <div>
-              <label class="text-sm">Username</label>
-              <input [(ngModel)]="modalModel.username" name="musername" required class="w-full mt-1" />
-            </div>
-            <div *ngIf="modalMode === 'create'">
-              <label class="text-sm">Password</label>
-              <input [(ngModel)]="modalModel.password" name="mpassword" type="password" required class="w-full mt-1" />
-            </div>
-              <div>
-                <label class="text-sm">Role</label>
-                <select [(ngModel)]="modalModel.role" name="mrole" class="w-full mt-1">
-                  <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
-                </select>
-              </div>
-              <!-- clinic field intentionally hidden in modal -->
-            <div class="flex gap-2 justify-end mt-4">
-              <button type="button" style="background:#eef2f7;color:#111;padding:0.5rem 0.75rem;border-radius:6px" (click)="closeModal()">Cancel</button>
-              <button type="submit" class="px-3 py-1 bg-black text-white rounded">{{ modalMode === 'create' ? 'Create' : 'Save' }}</button>
-            </div>
-          </form>
-        </div>
-      </div>
+      <p class="msg">{{ message }}</p>
     </section>
-  `
+  `,
+  styles: [`
+    .um-wrap { display: grid; gap: .8rem; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    h3 { margin: 0; }
+    button { border: 1px solid #0a4f38; background: #0f6a4b; color: #fff; padding: .38rem .65rem; }
+    .ghost { background: transparent; color: #10231b; border-color: #c6d5cc; }
+    .danger { background: transparent; color: #8b2a2a; border-color: #d7c4c4; }
+    table { width: 100%; border-collapse: collapse; background: #fbfcf8; border: 1px solid #d4ded6; }
+    th, td { border-bottom: 1px solid #e5ece7; padding: .5rem; text-align: left; font-size: .85rem; }
+    .actions { display: flex; gap: .35rem; }
+    .modal-mask { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: grid; place-items: center; }
+    .modal { background: #fff; border: 1px solid #d4ded6; padding: 1rem; width: min(460px, 95vw); display: grid; gap: .55rem; }
+    label { display: grid; gap: .2rem; font-size: .85rem; }
+    input, select { border: 1px solid #d4ded6; padding: .45rem; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: .45rem; }
+    .msg { margin: 0; color: #8b2a2a; }
+  `]
 })
 export class UserManagementComponent {
   users: any[] = [];
-  roles = ['physician','pharmacist','billing','inventory','admin','auditor'];
-  newUser = { username: '', password: '', role: 'physician' };
-  editingId: string | null = null;
-  editModel: any = { username: '', role: '' };
-  rowMenuOpen: string | null = null;
+  roles = ['physician', 'pharmacist', 'billing', 'inventory', 'admin', 'auditor'];
   modalOpen = false;
   modalMode: 'create' | 'edit' = 'create';
-  modalModel: any = { username: '', password: '', role: 'physician', clinic_id: '' };
-
-  currentUser: any = null;
+  editingId: string | null = null;
+  modalModel: any = { username: '', password: '', role: 'physician' };
+  message = '';
 
   constructor(private api: ApiService) {
     this.load();
-    this.loadCurrentUser();
   }
 
-  loadCurrentUser() {
-    this.api.getMe().subscribe({ next: (res: any) => { this.currentUser = res; }, error: () => { this.currentUser = null; } });
-  }
-
-  load() { this.api.getUsers().subscribe({ next: (res: any) => (this.users = res || []), error: () => (this.users = []) }); }
-
-  create() {
-    const payload = { username: this.newUser.username, password: this.newUser.password, role: this.newUser.role };
-    this.api.createUser(payload).subscribe({ next: () => { this.newUser = { username: '', password: '', role: 'physician' }; this.load(); } });
-  }
-
-  startEdit(u: any) {
-    this.openEdit(u);
-  }
-
-  cancelEdit() { this.editingId = null; this.editModel = { username: '', role: '' }; }
-
-  saveEdit(id: string) {
-    const payload = { username: this.editModel.username, role: this.editModel.role };
-    this.api.updateUser(id, payload).subscribe({ next: () => { this.cancelEdit(); this.load(); } });
-  }
-
-  delete(id: string) {
-    if (!confirm('Delete user?')) return;
-    this.api.deleteUser(id).subscribe({ next: () => this.load() });
-  }
-
-  toggleRowMenu(id: string) {
-    this.rowMenuOpen = this.rowMenuOpen === id ? null : id;
+  load() {
+    this.api.getUsers().subscribe({ next: (res: any) => (this.users = res || []), error: () => (this.users = []) });
   }
 
   openCreate() {
     this.modalMode = 'create';
-    this.modalModel = { username: '', password: '', role: this.roles[0], clinic_id: '' };
+    this.editingId = null;
+    this.modalModel = { username: '', password: '', role: this.roles[0] };
     this.modalOpen = true;
   }
 
   openEdit(u: any) {
     this.modalMode = 'edit';
-    this.modalModel = { username: u.username, password: '', role: u.role, clinic_id: u.clinic_id };
     this.editingId = u.id;
+    this.modalModel = { username: u.username, password: '', role: u.role };
     this.modalOpen = true;
-    this.rowMenuOpen = null;
   }
 
   closeModal() {
@@ -149,18 +116,42 @@ export class UserManagementComponent {
 
   saveModal() {
     if (this.modalMode === 'create') {
-      const payload: any = { username: this.modalModel.username, password: this.modalModel.password, role: this.modalModel.role };
-      this.api.createUser(payload).subscribe({ next: () => { this.closeModal(); this.load(); } });
-    } else {
-      const payload: any = { username: this.modalModel.username, role: this.modalModel.role };
-      if (this.modalModel.password) payload.password = this.modalModel.password;
-      if (!this.editingId) return this.closeModal();
-      this.api.updateUser(this.editingId, payload).subscribe({ next: () => { this.closeModal(); this.load(); } });
+      this.api.createUser(this.modalModel).subscribe({
+        next: () => {
+          this.message = 'User created.';
+          this.closeModal();
+          this.load();
+        },
+        error: (err: any) => { this.message = err?.error?.msg || 'Create failed.'; },
+      });
+      return;
     }
+
+    if (!this.editingId) return;
+    const payload: any = { username: this.modalModel.username, role: this.modalModel.role };
+    if (this.modalModel.password) payload.password = this.modalModel.password;
+    this.api.updateUser(this.editingId, payload).subscribe({
+      next: () => {
+        this.message = 'User updated.';
+        this.closeModal();
+        this.load();
+      },
+      error: (err: any) => { this.message = err?.error?.msg || 'Update failed.'; },
+    });
   }
 
   confirmDelete(id: string) {
     if (!confirm('Delete user?')) return;
-    this.api.deleteUser(id).subscribe({ next: () => this.load() });
+    this.api.deleteUser(id, 'admin_delete').subscribe({
+      next: () => { this.message = 'User deleted.'; this.load(); },
+      error: (err: any) => { this.message = err?.error?.msg || 'Delete failed.'; },
+    });
+  }
+
+  unlock(id: string) {
+    this.api.unlockUser(id).subscribe({
+      next: () => { this.message = 'User unlocked.'; this.load(); },
+      error: (err: any) => { this.message = err?.error?.msg || 'Unlock failed.'; },
+    });
   }
 }

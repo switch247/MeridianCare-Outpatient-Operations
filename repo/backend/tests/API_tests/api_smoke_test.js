@@ -108,22 +108,26 @@ async function registerAndLogin(username, role) {
   assert.equal(rxQueue.status, 200);
   assert.ok(Array.isArray(rxQueue.body));
   const rxId = overrideOk.body.id;
+  const rxItem = await pharmacistReq('POST', '/api/inventory/items', { sku: `RX-${suffix}`, name: 'amoxicillin', lowStockThreshold: 3 });
+  assert.equal(rxItem.status, 201);
+  const stockIn = await pharmacistReq('POST', '/api/inventory/movements', { itemId: rxItem.body.id, movementType: 'receive', quantity: 20 });
+  assert.equal(stockIn.status, 200);
 
   const approve = await pharmacistReq('POST', `/api/pharmacy/${rxId}/action`, { action: 'approve', expectedVersion: 1 });
   assert.equal(approve.status, 200);
-  const dispense = await pharmacistReq('POST', `/api/pharmacy/${rxId}/action`, { action: 'dispense', expectedVersion: 2 });
+  const dispense = await pharmacistReq('POST', `/api/pharmacy/${rxId}/action`, { action: 'dispense', expectedVersion: 2, inventoryItemId: rxItem.body.id, dispenseQuantity: 10 });
   assert.equal(dispense.status, 200);
   const voidAfterDispense = await pharmacistReq('POST', `/api/pharmacy/${rxId}/action`, { action: 'void', reason: 'late' });
   assert.equal(voidAfterDispense.status, 400);
 
   const deniedBillingAction = await physicianReq('POST', '/api/billing/price', {
-    lines: [{ quantity: 1, unitPrice: 100 }],
+    lines: [{ chargeType: 'visit_code', quantity: 1, unitPrice: 100 }],
     planPercent: 10,
   });
   assert.equal(deniedBillingAction.status, 403);
 
   const bill = await billingReq('POST', '/api/billing/price', {
-    lines: [{ quantity: 2, unitPrice: 120 }],
+    lines: [{ chargeType: 'visit_code', quantity: 2, unitPrice: 120 }],
     planPercent: 10,
     couponAmount: 20,
     thresholdRule: { threshold: 200, off: 25 },
@@ -137,7 +141,7 @@ async function registerAndLogin(username, role) {
 
   const invoice = await billingReq('POST', '/api/invoices', {
     patientId: patient.body.id,
-    lines: [{ quantity: 2, unitPrice: 120 }],
+    lines: [{ chargeType: 'visit_code', quantity: 2, unitPrice: 120 }],
     planPercent: 10,
     couponAmount: 20,
     thresholdRule: { threshold: 200, off: 25 },
@@ -145,6 +149,7 @@ async function registerAndLogin(username, role) {
   assert.equal(invoice.status, 201);
   const paid = await billingReq('POST', `/api/invoices/${invoice.body.id}/payment`, {
     expectedVersion: invoice.body.version,
+    tenderType: 'cash',
     reference: `cash-${suffix}`,
   });
   assert.equal(paid.status, 200);

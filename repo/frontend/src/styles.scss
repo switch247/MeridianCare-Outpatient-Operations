@@ -1,46 +1,10 @@
-/* Minimal fallback styles when Tailwind is not installed or not built yet */
-/* These target the utility class names used in the template to keep the UI usable.
-	 They are intentionally simple and unobtrusive; Tailwind, when enabled, will override them. */
-:root { --bg: #f8fafc; --muted: #94a3b8; --border: #e5e7eb; --fg: #0f172a; }
-html, body { height: 100%; margin: 0; font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background: var(--bg); color: var(--fg); }
-* { box-sizing: border-box; }
-.min-h-screen { min-height: 100vh; }
-.flex { display: flex; }
-.flex-col { flex-direction: column; }
-.flex-1 { flex: 1 1 auto; }
-.overflow-hidden { overflow: hidden; }
-.w-64 { width: 16rem; }
-.h-14 { height: 3.5rem; }
-.bg-white { background: #fff; }
-.border-b { border-bottom: 1px solid var(--border); }
-.border-r { border-right: 1px solid var(--border); }
-.p-4 { padding: 1rem; }
-.p-6 { padding: 1.5rem; }
-.p-8 { padding: 2rem; }
-.rounded { border-radius: 0.375rem; }
-.shadow { box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-.text-white { color: #fff; }
-.bg-black { background: #000; color: #fff; }
-.text-sm { font-size: 0.875rem; }
-.text-xs { font-size: 0.75rem; }
-.font-semibold { font-weight: 600; }
-.font-bold { font-weight: 700; }
-.sticky { position: sticky; }
-.top-14 { top: 3.5rem; }
-button { cursor: pointer; border: none; padding: 0.5rem 1rem; border-radius: 6px; background: #000; color: #fff; }
-input, textarea, select { padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; outline: none; }
-/* basic layout helpers */
-header { height: 3.5rem; display: flex; align-items: center; padding: 0 1rem; background: #fff; border-bottom: 1px solid var(--border); }
-aside { background: #fff; border-right: 1px solid var(--border); padding: 1rem; overflow: auto; }
-main { background: var(--bg); padding: 1.5rem; }
-
-@media (max-width: 768px) {
-	.w-64 { width: 14rem; }
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #e6ebe2;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* small base tweaks */
-body { @apply text-slate-900 antialiased; }
+body {
+  font-family: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+}

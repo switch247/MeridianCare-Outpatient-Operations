@@ -3,6 +3,13 @@ const { writeAudit } = require('../lib/audit');
 const logger = require('../lib/logger');
 
 async function credentialingRoutes(fastify, opts) {
+  fastify.get('/api/credentialing', { preHandler: [opts.permit('*')] }, async () => {
+    const result = await pool.query(
+      'SELECT id,entity_type,full_name,license_number,license_expiry,status,version FROM credentialing_profiles ORDER BY id DESC LIMIT 200',
+    );
+    return result.rows;
+  });
+
   fastify.post('/api/credentialing/onboard', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     logger.info(['handler','credentialing:onboard'], `onboard requested by ${request.user && request.user.username}`);
     const b = request.body || {};
@@ -31,10 +38,22 @@ async function credentialingRoutes(fastify, opts) {
       }
     }
     for (const row of accepted) {
-      await pool.query(
-        'INSERT INTO credentialing_profiles(entity_type,full_name,license_number,license_expiry,status) VALUES($1,$2,$3,$4,$5)',
+      const inserted = await pool.query(
+        'INSERT INTO credentialing_profiles(entity_type,full_name,license_number,license_expiry,status) VALUES($1,$2,$3,$4,$5) RETURNING *',
         [row.entityType, row.fullName, row.licenseNumber || null, row.licenseExpiry || null, 'active'],
       );
+      if (inserted.rows && inserted.rows[0] && request.user) {
+        await writeAudit({
+          entityType: 'credentialing',
+          entityId: inserted.rows[0].id,
+          action: 'import_onboard',
+          actorId: request.user.id,
+          actorRole: request.user.role,
+          eventData: row,
+          snapshot: inserted.rows[0],
+          correlationId: request.requestId,
+        });
+      }
     }
     return { accepted: accepted.length, rejected: errors.length, errors };
   });

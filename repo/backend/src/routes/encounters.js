@@ -3,6 +3,25 @@ const { writeAudit } = require('../lib/audit');
 const logger = require('../lib/logger');
 
 async function encountersRoutes(fastify, opts) {
+  fastify.get('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request) => {
+    const patientId = (request.query || {}).patientId;
+    if (patientId) {
+      const byPatient = await pool.query(
+        'SELECT * FROM encounters WHERE patient_id=$1 ORDER BY updated_at DESC LIMIT 100',
+        [patientId],
+      );
+      return byPatient.rows;
+    }
+    const allRows = await pool.query('SELECT * FROM encounters ORDER BY updated_at DESC LIMIT 100');
+    return allRows.rows;
+  });
+
+  fastify.get('/api/encounters/:id', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
+    const result = await pool.query('SELECT * FROM encounters WHERE id=$1', [request.params.id]);
+    if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'Encounter not found' });
+    return result.rows[0];
+  });
+
   fastify.post('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
     logger.info(['handler','encounters:create'], `create encounter by ${request.user && request.user.username}`);
     const b = request.body || {};

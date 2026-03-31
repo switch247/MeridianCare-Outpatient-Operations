@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS clinics (
 );
 CREATE TABLE IF NOT EXISTS patients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), name TEXT NOT NULL, ssn_encrypted TEXT,
-  allergies JSONB NOT NULL DEFAULT '[]'::jsonb, contraindications JSONB NOT NULL DEFAULT '[]'::jsonb);
+  allergies JSONB NOT NULL DEFAULT '[]'::jsonb, contraindications JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS icd_catalog (code TEXT PRIMARY KEY, label TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, version_tag TEXT NOT NULL DEFAULT 'local-v1');
 CREATE TABLE IF NOT EXISTS encounters (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), patient_id UUID NOT NULL REFERENCES patients(id), physician_id UUID NOT NULL REFERENCES users(id),
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), encounter_id UUID NOT NULL REFERENCES encounters(id), patient_id UUID NOT NULL REFERENCES patients(id),
   prescriber_id UUID NOT NULL REFERENCES users(id), drug_name TEXT NOT NULL, dose TEXT NOT NULL, route TEXT NOT NULL, quantity INT NOT NULL,
   instructions TEXT NOT NULL, override_reason TEXT, state TEXT NOT NULL DEFAULT 'draft', version INT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dispensed_quantity INT NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), sku TEXT UNIQUE NOT NULL, name TEXT NOT NULL, on_hand INT NOT NULL DEFAULT 0,
   low_stock_threshold INT NOT NULL DEFAULT 10, lot_tracking BOOLEAN NOT NULL DEFAULT FALSE, serial_tracking BOOLEAN NOT NULL DEFAULT FALSE);
@@ -47,6 +49,10 @@ CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), patient_id UUID NOT NULL REFERENCES patients(id), lines JSONB NOT NULL DEFAULT '[]'::jsonb,
   subtotal NUMERIC(12,2) NOT NULL DEFAULT 0, plan_discount NUMERIC(12,2) NOT NULL DEFAULT 0, coupon_discount NUMERIC(12,2) NOT NULL DEFAULT 0,
   threshold_discount NUMERIC(12,2) NOT NULL DEFAULT 0, total NUMERIC(12,2) NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'unpaid', payment_ref TEXT, version INT NOT NULL DEFAULT 1);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS shipping_details JSONB NOT NULL DEFAULT '{}'::jsonb;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
 CREATE TABLE IF NOT EXISTS credentialing_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), entity_type TEXT NOT NULL, full_name TEXT NOT NULL, license_number TEXT,
   license_expiry DATE, status TEXT NOT NULL DEFAULT 'pending', version INT NOT NULL DEFAULT 1);
@@ -72,6 +78,7 @@ CREATE TABLE IF NOT EXISTS crawler_jobs (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE crawler_jobs ADD COLUMN IF NOT EXISTS node_id TEXT;
 
 CREATE TABLE IF NOT EXISTS model_versions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -91,6 +98,25 @@ CREATE TABLE IF NOT EXISTS backup_drills (
   drill_date DATE NOT NULL DEFAULT CURRENT_DATE,
   status TEXT NOT NULL,
   notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS backup_runs (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  run_date DATE NOT NULL DEFAULT CURRENT_DATE,
+  status TEXT NOT NULL,
+  encrypted BOOLEAN NOT NULL DEFAULT TRUE,
+  retention_days INT NOT NULL DEFAULT 30,
+  artifact_path TEXT,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS exception_alerts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  level TEXT NOT NULL DEFAULT 'error',
+  source TEXT NOT NULL DEFAULT 'api',
+  message TEXT NOT NULL,
+  details JSONB NOT NULL DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

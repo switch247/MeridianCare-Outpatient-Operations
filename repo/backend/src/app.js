@@ -35,9 +35,7 @@ async function buildApp() {
       const authHeader = request.headers.authorization || "";
       const headerToken = authHeader.replace("Bearer ", "") || "";
       const cookieToken = request.cookies && request.cookies.session;
-      const bodyToken = request.body && request.body.token;
-      const queryToken = request.query && request.query.token;
-      const token = headerToken || cookieToken || bodyToken || queryToken;
+      const token = headerToken || cookieToken;
       if (!token) {
         try {
           request.log.warn(["auth", "unauthorized"], `no token provided`, {
@@ -53,8 +51,6 @@ async function buildApp() {
       try {
         payload = await app.jwt.verify(token);
       } catch (ve) {
-        // ensure malformed/verify errors are logged via our logger and visible on console
-        console.log(ve);
         app.log.error(
             {
               meta: {
@@ -67,10 +63,9 @@ async function buildApp() {
        
         return reply.code(401).send({ code: 401, msg: "Unauthorized" });
       }
-      console.log("token claims:", payload);
 
       const decoded = app.jwt.decode(token) || {};
-      const jti = decoded.jti || decoded.jwd || null;
+      const jti = payload.jti || payload.jwtid || payload.jwd || decoded.jti || decoded.jwtid || decoded.jwd || null;
       const userRes = await pool.query("SELECT * FROM users WHERE id=$1", [
         payload.sub,
       ]);
@@ -88,66 +83,41 @@ async function buildApp() {
         return reply.code(401).send({ code: 401, msg: "Unauthorized" });
       }
 
-      // if (!jti) {
-      //     request.log.warn(["auth", "unauthorized"], `missing jti in token`, {
-      //       userId: user && user.id,
-      //       ip: request.ip,
-      //       path: request.routerPath || request.raw.url,
-      //       method: request.method,
-      //     });
-      
-      //   return reply.code(401).send({ code: 401, msg: "Unauthorized" });
-      // }
-      // const sessRes = await pool.query("SELECT * FROM sessions WHERE jti=$1", [
-      //   jti,
-      // ]);
-      // const session = sessRes.rows[0];
-      // if (!session || session.revoked) {
-      //   try {
-      //     request.log.warn(
-      //       ["auth", "unauthorized"],
-      //       `session revoked or not found`,
-      //       {
-      //         userId: user && user.id,
-      //         jti,
-      //         ip: request.ip,
-      //         path: request.routerPath || request.raw.url,
-      //         method: request.method,
-      //       },
-      //     );
-      //   } catch (e) {}
-      //   return reply
-      //     .code(401)
-      //     .send({ code: 401, msg: "Session revoked or not found" });
-      // }
-      // if (session.expires_at && new Date(session.expires_at) < new Date()) {
-      //   try {
-      //     request.log.warn(["auth", "unauthorized"], `session expired`, {
-      //       userId: user && user.id,
-      //       sessionExpiresAt: session.expires_at,
-      //       ip: request.ip,
-      //       path: request.routerPath || request.raw.url,
-      //       method: request.method,
-      //     });
-      //   } catch (e) {}
-      //   return reply.code(401).send({ code: 401, msg: "Token expired" });
-      // }
+      let session = null;
+      if (jti) {
+        const sessRes = await pool.query("SELECT * FROM sessions WHERE jti=$1", [jti]);
+        session = sessRes.rows[0] || null;
+      } else {
+        const fallback = await pool.query(
+          "SELECT * FROM sessions WHERE user_id=$1 AND revoked=false ORDER BY last_active_at DESC LIMIT 1",
+          [payload.sub],
+        );
+        session = fallback.rows[0] || null;
+      }
+      if (!session || session.revoked) {
+        return reply
+          .code(401)
+          .send({ code: 401, msg: "Session revoked or not found" });
+      }
+      if (session.expires_at && new Date(session.expires_at) < new Date()) {
+        return reply.code(401).send({ code: 401, msg: "Token expired" });
+      }
 
-      // const inactivityMin = session.kiosk
-      //   ? env.KIOSK_INACTIVITY_MIN
-      //   : env.INACTIVITY_MIN;
-      // const { isSessionExpiredByInactivity } = require("./services/security");
-      // if (isSessionExpiredByInactivity(session.last_active_at, inactivityMin))
-      //   return reply.code(401).send({ code: 401, msg: "Session expired" });
+      const inactivityMin = session.kiosk
+        ? env.KIOSK_INACTIVITY_MIN
+        : env.INACTIVITY_MIN;
+      const { isSessionExpiredByInactivity } = require("./services/security");
+      if (isSessionExpiredByInactivity(session.last_active_at, inactivityMin))
+        return reply.code(401).send({ code: 401, msg: "Session expired" });
 
-      // await pool.query("UPDATE sessions SET last_active_at=NOW() WHERE id=$1", [
-      //   session.id,
-      // ]);
-      // await pool.query("UPDATE users SET last_active_at=NOW() WHERE id=$1", [
-      //   user.id,
-      // ]);
+      await pool.query("UPDATE sessions SET last_active_at=NOW() WHERE id=$1", [
+        session.id,
+      ]);
+      await pool.query("UPDATE users SET last_active_at=NOW() WHERE id=$1", [
+        user.id,
+      ]);
       request.user = user;
-      // request.session = session;
+      request.session = session;
     } catch (e) {      
         request.log.warn(
           ["auth", "unauthorized", "error"],

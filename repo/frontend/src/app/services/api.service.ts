@@ -43,15 +43,30 @@ export class ApiService {
     return this.http.post(this.url('/api/users'), payload, { headers: this.authHeaders() });
   }
   updateUser(id: string, payload: unknown) { return this.http.put(this.url(`/api/users/${id}`), payload, { headers: this.authHeaders() }); }
-  deleteUser(id: string) { return this.http.delete(this.url(`/api/users/${id}`), { headers: this.authHeaders() }); }
+  deleteUser(id: string, reason = 'admin_delete') {
+    return this.http.delete(this.url(`/api/users/${id}`), { headers: this.authHeaders(), body: { confirmed: true, reason } });
+  }
+  unlockUser(id: string) { return this.http.post(this.url(`/api/auth/unlock/${id}`), {}, { headers: this.authHeaders() }); }
+  getCredentialingProfiles() { return this.http.get(this.url('/api/credentialing'), { headers: this.authHeaders() }); }
+  onboardCredentialing(payload: unknown) { return this.http.post(this.url('/api/credentialing/onboard'), payload, { headers: this.authHeaders() }); }
+  importCredentialing(rows: unknown[]) { return this.http.post(this.url('/api/credentialing/import'), { rows }, { headers: this.authHeaders() }); }
   getKpis() { return this.http.get(this.url('/api/observability/kpis')); }
   searchIcd(q: string) { return this.http.get(this.url('/api/icd'), { params: { q }, headers: this.authHeaders() }); }
   getPharmacyQueue() { return this.http.get(this.url('/api/pharmacy/queue'), { headers: this.authHeaders() }); }
+  pharmacyAction(id: string, payload: unknown) { return this.http.post(this.url(`/api/pharmacy/${id}/action`), payload, { headers: this.authHeaders() }); }
+  getPharmacyMovements(id: string) { return this.http.get(this.url(`/api/pharmacy/${id}/movements`), { headers: this.authHeaders() }); }
+  createPharmacyReturn(id: string, payload: unknown) { return this.http.post(this.url(`/api/pharmacy/${id}/return`), payload, { headers: this.authHeaders() }); }
   getShippingTemplates() { return this.http.get(this.url('/api/shipping/templates'), { headers: this.authHeaders() }); }
   getSyncStatus() { return this.http.get(this.url('/api/sync/status'), { headers: this.authHeaders() }); }
   enqueueSync(payload: unknown) { return this.http.post(this.url('/api/sync/enqueue'), payload, { headers: this.authHeaders() }); }
   createPatient(payload: unknown) { return this.http.post(this.url('/api/patients'), payload, { headers: this.authHeaders() }); }
+  getPatients() { return this.http.get(this.url('/api/patients'), { headers: this.authHeaders() }); }
   createEncounter(payload: unknown) { return this.http.post(this.url('/api/encounters'), payload, { headers: this.authHeaders() }); }
+  getEncounters(patientId?: string) {
+    const params: any = {};
+    if (patientId) params.patientId = patientId;
+    return this.http.get(this.url('/api/encounters'), { headers: this.authHeaders(), params });
+  }
   signEncounter(id: string, expectedVersion: number) {
     return this.http.post(this.url(`/api/encounters/${id}/sign`), { expectedVersion }, { headers: this.authHeaders() });
   }
@@ -60,12 +75,25 @@ export class ApiService {
   runCrawler(payload: unknown) { return this.http.post(this.url('/api/crawler/run'), payload, { headers: this.authHeaders() }); }
   registerModel(payload: unknown) { return this.http.post(this.url('/api/models/register'), payload, { headers: this.authHeaders() }); }
   // Inventory & Invoices (simple placeholders)
-  getInventory() { return this.http.get(this.url('/api/inventory'), { headers: this.authHeaders() }); }
-  createInventoryItem(payload: unknown) { return this.http.post(this.url('/api/inventory'), payload, { headers: this.authHeaders() }); }
-  updateInventoryItem(id: string, payload: unknown) { return this.http.put(this.url(`/api/inventory/${id}`), payload, { headers: this.authHeaders() }); }
-  deleteInventoryItem(id: string) { return this.http.delete(this.url(`/api/inventory/${id}`), { headers: this.authHeaders() }); }
+  getInventory() { return this.http.get(this.url('/api/inventory/items'), { headers: this.authHeaders() }); }
+  createInventoryItem(payload: unknown) { return this.http.post(this.url('/api/inventory/items'), payload, { headers: this.authHeaders() }); }
+  createInventoryMovement(payload: unknown) { return this.http.post(this.url('/api/inventory/movements'), payload, { headers: this.authHeaders() }); }
+  getLowStockAlerts() { return this.http.get(this.url('/api/inventory/alerts/low-stock'), { headers: this.authHeaders() }); }
+  getInventoryVariance() { return this.http.get(this.url('/api/inventory/reports/variance'), { headers: this.authHeaders() }); }
 
   getInvoices() { return this.http.get(this.url('/api/invoices'), { headers: this.authHeaders() }); }
+  getInvoice(id: string) { return this.http.get(this.url(`/api/invoices/${id}`), { headers: this.authHeaders() }); }
   createInvoice(payload: unknown) { return this.http.post(this.url('/api/invoices'), payload, { headers: this.authHeaders() }); }
-  deleteInvoice(id: string) { return this.http.delete(this.url(`/api/invoices/${id}`), { headers: this.authHeaders() }); }
+  payInvoice(id: string, payload: unknown) { return this.http.post(this.url(`/api/invoices/${id}/payment`), payload, { headers: this.authHeaders() }); }
+  cancelInvoice(id: string, payload: unknown) { return this.http.post(this.url(`/api/invoices/${id}/cancel`), payload, { headers: this.authHeaders() }); }
+
+  getCrawlerQueue() { return this.http.get(this.url('/api/crawler/queue'), { headers: this.authHeaders() }); }
+  processCrawlerNext(payload: unknown) { return this.http.post(this.url('/api/crawler/process-next'), payload, { headers: this.authHeaders() }); }
+  getModelDrift() { return this.http.get(this.url('/api/models/drift'), { headers: this.authHeaders() }); }
+  getExceptions() { return this.http.get(this.url('/api/observability/exceptions'), { headers: this.authHeaders() }); }
+  createException(payload: unknown) { return this.http.post(this.url('/api/observability/exceptions'), payload, { headers: this.authHeaders() }); }
+  runNightlyBackup(payload: unknown = {}) { return this.http.post(this.url('/api/admin/backups/nightly'), payload, { headers: this.authHeaders() }); }
+  getNightlyBackups() { return this.http.get(this.url('/api/admin/backups/nightly'), { headers: this.authHeaders() }); }
+  createRestoreDrill(payload: unknown) { return this.http.post(this.url('/api/admin/backups/restore-drill'), payload, { headers: this.authHeaders() }); }
+  getRestoreDrills() { return this.http.get(this.url('/api/admin/backups/restore-drill'), { headers: this.authHeaders() }); }
 }

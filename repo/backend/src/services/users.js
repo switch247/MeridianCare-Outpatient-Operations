@@ -12,15 +12,15 @@ async function createUser({ username, password, role, clinicId, actorId, actorRo
 
 async function listUsers({ clinicId }) {
   if (clinicId) {
-    const r = await pool.query('SELECT id,username,role,clinic_id,created_at FROM users WHERE clinic_id=$1 ORDER BY created_at DESC', [clinicId]);
+    const r = await pool.query('SELECT id,username,role,clinic_id,failed_attempts,lockout_until,created_at FROM users WHERE clinic_id=$1 ORDER BY created_at DESC', [clinicId]);
     return r.rows;
   }
-  const r = await pool.query('SELECT id,username,role,clinic_id,created_at FROM users ORDER BY created_at DESC');
+  const r = await pool.query('SELECT id,username,role,clinic_id,failed_attempts,lockout_until,created_at FROM users ORDER BY created_at DESC');
   return r.rows;
 }
 
 async function getUser(id) {
-  const r = await pool.query('SELECT id,username,role,clinic_id,created_at FROM users WHERE id=$1', [id]);
+  const r = await pool.query('SELECT id,username,role,clinic_id,failed_attempts,lockout_until,created_at FROM users WHERE id=$1', [id]);
   return r.rows[0] || null;
 }
 

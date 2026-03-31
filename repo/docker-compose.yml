@@ -22,14 +22,17 @@ services:
       PORT: 3000
     ports:
       - "13000:3000"
+    volumes:
+      - ./data/backups:/app/backups
     depends_on:
       - db
 
-  # frontend:
-  #   build: ./frontend
-  #   ports:
-  #     - "14200:4200"
-  #   depends_on:
-  #     - backend
+  frontend:
+    container_name: t2-frontend
+    build: ./frontend
+    ports:
+      - "14200:4200"
+    depends_on:
+      - backend
 
 # no named volumes required; Postgres data is bind-mounted to ./data/postgres

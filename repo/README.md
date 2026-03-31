@@ -1,15 +1,15 @@
 # MeridianCare Outpatient Operations
 
-Fullstack monorepo under `/repo` implementing an on-prem clinic workflow platform with Angular frontend, Fastify backend, PostgreSQL persistence, RBAC, auditing, and Docker-based execution.
+On-prem fullstack platform for clinic encounters, e-prescriptions, pharmacy/inventory operations, billing, credentialing, crawler ingestion, forecasting lifecycle, and backup/restore drills.
 
-## Architecture
-- `frontend/`: Angular desktop-focused UI with per-role workflows.
-- `backend/`: Fastify REST API, validation and state-machine style transitions, audit/version snapshots, local auth.
-- `tests/unit_tests`: unit-level test artifacts (mapped to backend vitest suite).
-- `tests/API_tests`: API test artifacts and smoke scenarios.
-- `docs/requirements_traceability.md`: requirement-to-test mapping.
+## Architecture Map
+- `backend/`: Fastify API modules (`auth`, `patients`, `encounters`, `prescriptions`, `inventory`, `billing`, `credentialing`, `admin`, `sync_audit`) with PostgreSQL persistence.
+- `frontend/`: Angular desktop-first role workspaces (Physician, Pharmacist, Billing, Inventory, Admin, Auditor).
+- `backend/tests/unit_tests`: unit tests for core logic (security, discounts, allergy checks, state machine, masking, logging).
+- `backend/tests/API_tests`: API and E2E acceptance tests by requirement/phase.
+- `docs/requirements_traceability.md`: requirement-to-implementation and requirement-to-test matrix (1-41).
 
-## Run with Docker
+## One-Click Startup (Docker)
 ```bash
 docker compose up --build
 ```
@@ -17,37 +17,48 @@ docker compose up --build
 - Frontend: http://localhost:14200
 - Backend health: http://localhost:13000/health
 
-docker compose exec backend node /app/scripts/api_smoke_test.js
-docker compose exec backend node /app/scripts/requirement_api_test.js
-## Run Tests (Docker-only)
-All commands are intended to run via Docker Compose. Example:
+## Verification (Docker-only)
+Run full suite:
+
+```bash
+./run_tests.sh
+```
+
+PowerShell equivalent:
+
+```powershell
+.\run_tests.ps1
+```
+
+Individual checks:
 
 ```bash
 docker compose exec backend npm test
+docker compose exec backend node /app/tests/API_tests/api_smoke_test.js
+docker compose exec backend node /app/tests/API_tests/requirement_api_test.js
+docker compose exec backend node /app/tests/API_tests/phase2_clinical_e2e_test.js
+docker compose exec backend node /app/tests/API_tests/phase3_pharmacy_e2e_test.js
+docker compose exec backend node /app/tests/API_tests/phase4_billing_e2e_test.js
+docker compose exec backend node /app/tests/API_tests/phase5_ops_e2e_test.js
 ```
-The repository is designed to run within the provided Docker environment; local (host) run commands are not supported or tested.
 
-## Security & Data Isolation
-- Local username/password auth with bcrypt hashes, min length 12.
-- Lockout after 5 failed attempts for 15 minutes.
-- Session idle timeout at 20 minutes.
-- RBAC route enforcement for Physician/Pharmacist/Billing/Inventory/Admin/Auditor.
-- PHI encryption for sensitive patient identifiers.
-- Immutable audit events + version increments on key clinical/credentialing records.
+## Security and Data Isolation
+- Local username/password auth only; minimum password length 12; bcrypt hashing.
+- Lockout policy: 5 failed attempts -> 15-minute lockout.
+- Session idle timeout: 20 minutes with session revocation support.
+- RBAC route checks for Physician/Pharmacist/Billing/Inventory/Admin/Auditor.
+- PHI controls: encrypted sensitive identifiers and masked patient projections for non-clinical views.
+- Audit immutability: encounter/prescription/credentialing edits emit append-only audit events with snapshots.
+- Concurrency protections: optimistic version checks + transactional `SELECT ... FOR UPDATE` on dispense.
+- Payments are manual records only (`cash/card/manual_ref`) with no external payment gateway integration.
 
-## Seeded Users (local development)
+## Seeded Local Users
+- `physician@local` (`physician`)
+- `pharmacist@local` (`pharmacist`)
+- `billing@local` (`billing`)
+- `inventory@local` (`inventory`)
+- `admin@local` (`admin`)
+- `auditor@local` (`auditor`)
 
-The backend seeder creates one user per role for convenience. By default the seeded accounts are:
+Default password: `Password!123` (override with `SEED_PASSWORD` env var).
 
-- username: `physician@local` — role: `physician`
-- username: `pharmacist@local` — role: `pharmacist`
-- username: `billing@local` — role: `billing`
-- username: `inventory@local` — role: `inventory`
-- username: `admin@local` — role: `admin`
-- username: `auditor@local` — role: `auditor`
-
-Default password: `Password!123`
-
-You can override the seeded password by setting the `SEED_PASSWORD` environment variable before starting the backend. The seeder runs automatically after the server starts (non-blocking) when the database is initialized.
-
-Frontend: open the `User Management` page (Admin role) to create/edit users. Use the seeded admin account to log in and manage users.
