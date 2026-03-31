@@ -19,10 +19,13 @@ export class ApiService {
   getRole() { return this.role() || (localStorage.getItem('role') || ''); }
   persistToken(token: string, remember = false) {
     this.token.set(token);
+    // Persist securely: default to sessionStorage, only keep in localStorage when "remember"
     if (remember) localStorage.setItem('token', token);
+    else sessionStorage.setItem('token', token);
   }
   loadTokenFromStorage() {
-    const t = localStorage.getItem('token');
+    // Prefer sessionStorage for short-lived tokens, fall back to localStorage when present
+    const t = sessionStorage.getItem('token') || localStorage.getItem('token');
     if (t) this.token.set(t);
   }
   private authHeaders(): Record<string, string> {

@@ -129,5 +129,5 @@ async function registerAndLogin(username, role) {
   assert.equal(returned.status, 200);
   assert.equal(returned.body.movement.movement_type, 'return');
 
-  console.log('Phase 3 pharmacy E2E passed');
+  console.log('Pharmacy E2E passed');
 })();

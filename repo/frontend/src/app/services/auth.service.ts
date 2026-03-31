@@ -10,7 +10,8 @@ export class AuthService {
 
   bootstrap() {
     this.api.loadTokenFromStorage();
-    const user = localStorage.getItem('user');
+    // Restore user from sessionStorage first, then localStorage (remembered)
+    const user = sessionStorage.getItem('user') || localStorage.getItem('user');
     if (user) {
       this.currentUser.set(JSON.parse(user));
       return;
@@ -35,14 +36,20 @@ export class AuthService {
     this.api.persistToken(res.token, remember);
     if (res.user) {
       this.currentUser.set(res.user);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      // Store user profile in sessionStorage by default; persist in localStorage only when requested
+      if (remember) localStorage.setItem('user', JSON.stringify(res.user));
+      else sessionStorage.setItem('user', JSON.stringify(res.user));
     }
     if (res.role) this.api.setRole(res.role);
   }
 
   logout() {
     this.api.setToken('');
-    localStorage.clear();
+    // Remove auth artifacts without wiping unrelated localStorage keys
+    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
     this.currentUser.set(null);
     this.api.setRole('');
     this.router.navigateByUrl('/');

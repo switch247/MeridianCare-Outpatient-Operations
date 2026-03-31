@@ -106,9 +106,9 @@ async function createUser(username, role) {
 
   const drill = await request('POST', '/api/admin/backups/restore-drill', {
     status: 'completed',
-    notes: 'phase5 monthly drill',
+    notes: 'ops monthly drill',
   }, admin.token);
   assert.equal(drill.status, 201);
 
-  console.log('Phase 5 ops E2E passed');
+  console.log('Ops E2E passed');
 })();

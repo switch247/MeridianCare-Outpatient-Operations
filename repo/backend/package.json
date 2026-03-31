@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "vitest run",
+    "test:run-single": "vitest run --threads=false",
     "seed": "node src/db/seed.js",
     "test:watch": "vitest"
   },

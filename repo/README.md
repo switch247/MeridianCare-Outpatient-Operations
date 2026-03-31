@@ -29,18 +29,8 @@ PowerShell equivalent:
 ```powershell
 .\run_tests.ps1
 ```
-
 Individual checks:
 
-```bash
-docker compose exec backend npm test
-docker compose exec backend node /app/tests/API_tests/api_smoke_test.js
-docker compose exec backend node /app/tests/API_tests/requirement_api_test.js
-docker compose exec backend node /app/tests/API_tests/phase2_clinical_e2e_test.js
-docker compose exec backend node /app/tests/API_tests/phase3_pharmacy_e2e_test.js
-docker compose exec backend node /app/tests/API_tests/phase4_billing_e2e_test.js
-docker compose exec backend node /app/tests/API_tests/phase5_ops_e2e_test.js
-```
 
 ## Security and Data Isolation
 - Local username/password auth only; minimum password length 12; bcrypt hashing.

@@ -107,10 +107,12 @@ logs/
 dist/
 build/
 
+.tmp
+.reports
 .meta
 .agents
 
 postgres/
 backups/
 data/
-sessions/
+# sessions/

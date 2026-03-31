@@ -10,16 +10,16 @@ docker compose exec backend node /app/tests/API_tests/api_smoke_test.js
 echo "[3/7] Requirement API tests"
 docker compose exec backend node /app/tests/API_tests/requirement_api_test.js
 
-echo "[4/7] Phase 2 clinical E2E"
-docker compose exec backend node /app/tests/API_tests/phase2_clinical_e2e_test.js
+echo "[4/7] Clinical E2E"
+docker compose exec backend node /app/frontend/tests/clinical_e2e_test.js
 
-echo "[5/7] Phase 3 pharmacy E2E"
-docker compose exec backend node /app/tests/API_tests/phase3_pharmacy_e2e_test.js
+echo "[5/7] Pharmacy E2E"
+docker compose exec backend node /app/frontend/tests/pharmacy_e2e_test.js
 
-echo "[6/7] Phase 4 billing E2E"
-docker compose exec backend node /app/tests/API_tests/phase4_billing_e2e_test.js
+echo "[6/7] Billing E2E"
+docker compose exec backend node /app/frontend/tests/billing_e2e_test.js
 
-echo "[7/7] Phase 5 ops E2E"
-docker compose exec backend node /app/tests/API_tests/phase5_ops_e2e_test.js
+echo "[7/7] Ops E2E"
+docker compose exec backend node /app/frontend/tests/ops_e2e_test.js
 
 echo "Done"

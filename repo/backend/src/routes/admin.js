@@ -5,7 +5,7 @@ const { encrypt } = require('../utils/crypto');
 const { env } = require('../config');
 const { computeBackoffSeconds, nextStage } = require('../services/crawler');
 const { createUser } = require('../services/users');
-const { forecastFromModel, topMedicationRecommendations, dateSeriesFromRows } = require('../services/forecasting');
+const { forecastFromModel, topMedicationRecommendations, similarPrescriptionSuggestions, dateSeriesFromRows } = require('../services/forecasting');
 const logger = require('../lib/logger');
 
 async function adminRoutes(fastify, opts) {
@@ -45,13 +45,22 @@ async function adminRoutes(fastify, opts) {
     };
   });
 
-  fastify.get('/api/crawler/queue', { preHandler: [opts.permit('*')] }, async () => (
-    await pool.query(
+  fastify.get('/api/crawler/queue', { preHandler: [opts.permit('*')] }, async (request) => {
+    const page = Math.max(1, Number((request.query || {}).page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
+    const q = String((request.query || {}).q || '').trim();
+    const where = q ? 'WHERE source_name ILIKE $1 OR state ILIKE $1 OR COALESCE(node_id,\'\') ILIKE $1' : '';
+    const params = q ? [`%${q}%`] : [];
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM crawler_jobs ${where}`, params);
+    const rowsRes = await pool.query(
       `SELECT id,source_name,priority,state,retries,next_retry_at,node_id,checkpoint,created_at,updated_at
-       FROM crawler_jobs
-       ORDER BY priority ASC,created_at ASC`,
-    )
-  ).rows);
+       FROM crawler_jobs ${where}
+       ORDER BY priority ASC,created_at ASC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, (page - 1) * pageSize],
+    );
+    return { items: rowsRes.rows, total: Number(countRes.rows[0].count), page, pageSize };
+  });
 
   fastify.post('/api/crawler/process-next', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     const nodeId = (request.body || {}).nodeId || 'node-1';
@@ -122,13 +131,26 @@ async function adminRoutes(fastify, opts) {
     return { ...result.rows[0], baselinePass, baselineCompared: true, rollbackAvailable: true, driftMonitoring: true };
   });
 
-  fastify.get('/api/models/drift', { preHandler: [opts.permit('*')] }, async () => {
+  fastify.get('/api/models/drift', { preHandler: [opts.permit('*')] }, async (request) => {
+    const page = Math.max(1, Number((request.query || {}).page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
+    const q = String((request.query || {}).q || '').trim();
+    const where = q ? 'WHERE model_type ILIKE $1 OR version_tag ILIKE $1 OR algorithm ILIKE $1' : '';
+    const params = q ? [`%${q}%`] : [];
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM model_versions ${where}`, params);
     const rows = await pool.query(
       `SELECT id,model_type,version_tag,algorithm,baseline_score,current_score,drift_score,is_deployed
-       FROM model_versions
-       ORDER BY created_at DESC`,
+       FROM model_versions ${where}
+       ORDER BY created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, (page - 1) * pageSize],
     );
-    return rows.rows.map((r) => ({ ...r, driftStatus: Number(r.drift_score) > 0.25 ? 'warning' : 'ok' }));
+    return {
+      items: rows.rows.map((r) => ({ ...r, driftStatus: Number(r.drift_score) > 0.25 ? 'warning' : 'ok' })),
+      total: Number(countRes.rows[0].count),
+      page,
+      pageSize,
+    };
   });
 
   fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('*')] }, async () => {
@@ -145,13 +167,15 @@ async function adminRoutes(fastify, opts) {
   });
 
   fastify.get('/api/admin/recommendations', { preHandler: [opts.permit('*')] }, async () => {
-    const rxRows = (await pool.query('SELECT drug_name FROM prescriptions ORDER BY updated_at DESC LIMIT 500')).rows;
+    const rxRows = (await pool.query('SELECT id,drug_name,dose,route,quantity,updated_at FROM prescriptions ORDER BY updated_at DESC LIMIT 500')).rows;
     const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['recommendations'])).rows[0];
     const top = topMedicationRecommendations(rxRows, 5);
+    const similar = similarPrescriptionSuggestions(rxRows, 5);
     return {
       model: deployedModel ? deployedModel.version_tag : 'baseline-similarity',
       algorithm: deployedModel ? deployedModel.algorithm : 'frequency_baseline',
       recommendations: top,
+      similarPrescriptions: similar,
     };
   });
 
@@ -200,9 +224,21 @@ async function adminRoutes(fastify, opts) {
     return inserted.rows[0];
   });
 
-  fastify.get('/api/observability/exceptions', { preHandler: [opts.permit('*')] }, async () => (
-    await pool.query('SELECT * FROM exception_alerts ORDER BY created_at DESC LIMIT 100')
-  ).rows);
+  fastify.get('/api/observability/exceptions', { preHandler: [opts.permit('*')] }, async (request) => {
+    const page = Math.max(1, Number((request.query || {}).page || 1));
+    const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
+    const q = String((request.query || {}).q || '').trim();
+    const where = q ? 'WHERE message ILIKE $1 OR source ILIKE $1 OR level ILIKE $1' : '';
+    const params = q ? [`%${q}%`] : [];
+    const countRes = await pool.query(`SELECT COUNT(*)::int AS count FROM exception_alerts ${where}`, params);
+    const rows = await pool.query(
+      `SELECT * FROM exception_alerts ${where}
+       ORDER BY created_at DESC
+       LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+      [...params, pageSize, (page - 1) * pageSize],
+    );
+    return { items: rows.rows, total: Number(countRes.rows[0].count), page, pageSize };
+  });
 
   fastify.post('/api/admin/backups/nightly', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     logger.info(['handler', 'admin:backups:nightly'], 'scheduled nightly backup');

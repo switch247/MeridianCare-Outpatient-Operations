@@ -41,7 +41,11 @@ async function run() {
     console.log('Clinic id:', clinicId);
 
     const roles = ['physician','pharmacist','billing','inventory','admin','auditor'];
-    const password = process.env.SEED_PASSWORD || 'Password!123';
+    const runningTests = process.env.NODE_ENV === 'test' || process.argv.join(' ').toLowerCase().includes('vitest');
+    if (!process.env.SEED_PASSWORD && !runningTests) {
+      throw new Error('Missing required environment variable: SEED_PASSWORD');
+    }
+    const password = process.env.SEED_PASSWORD || (runningTests ? 'Password!123' : undefined);
     const createdUsers = {};
     for (const r of roles) {
       const username = `${r}@local`;

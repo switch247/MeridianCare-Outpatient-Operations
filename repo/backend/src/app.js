@@ -188,7 +188,7 @@ async function buildApp() {
     reply.code(500).send({ code: 500, msg: "Internal server error" });
   });
 
-  await initDb();
+  if (process.env.NODE_ENV !== 'test') await initDb();
   return app;
 }
 

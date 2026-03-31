@@ -50,6 +50,47 @@ function topMedicationRecommendations(prescriptionRows, limit = 5) {
     .map(([drugName, occurrences]) => ({ drugName, occurrences }));
 }
 
+function toVector(row) {
+  const doseNum = Number(String(row.dose || '').replace(/[^\d.]/g, '')) || 0;
+  const qty = Number(row.quantity || 0);
+  const route = String(row.route || '').toLowerCase();
+  return [
+    doseNum,
+    qty,
+    route === 'oral' ? 1 : 0,
+    route === 'iv' ? 1 : 0,
+    route === 'topical' ? 1 : 0,
+  ];
+}
+
+function cosineSimilarity(a, b) {
+  let dot = 0;
+  let magA = 0;
+  let magB = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    dot += a[i] * b[i];
+    magA += a[i] * a[i];
+    magB += b[i] * b[i];
+  }
+  if (!magA || !magB) return 0;
+  return dot / (Math.sqrt(magA) * Math.sqrt(magB));
+}
+
+function similarPrescriptionSuggestions(rows, limit = 5) {
+  if (!rows || rows.length < 2) return [];
+  const latest = rows[0];
+  const latestVec = toVector(latest);
+  return rows
+    .slice(1)
+    .map((r) => ({
+      prescriptionId: r.id,
+      drugName: r.drug_name,
+      score: Number(cosineSimilarity(latestVec, toVector(r)).toFixed(4)),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit);
+}
+
 function dateSeriesFromRows(rows, now = Date.now(), days = 30) {
   const byDay = new Map();
   for (const row of rows || []) {
@@ -67,5 +108,6 @@ function dateSeriesFromRows(rows, now = Date.now(), days = 30) {
 module.exports = {
   forecastFromModel,
   topMedicationRecommendations,
+  similarPrescriptionSuggestions,
   dateSeriesFromRows,
 };

@@ -1,27 +1,13 @@
 const { pool } = require('../db');
-const { hashPassword, verifyPassword } = require('../services/security');
+const { verifyPassword } = require('../services/security');
 const { env } = require('../config');
 const { v4: uuidv4 } = require('uuid');
-const { encrypt } = require('../utils/crypto');
 const logger = require('../lib/logger');
 
 async function authRoutes(fastify, opts) {
   fastify.post('/api/auth/register', async (request, reply) => {
-    logger.info(['handler','auth:register'], `register request body keys=${Object.keys(request.body||{})}`);
-    const { username, password } = request.body || {};
-    if (!username || !password) return reply.code(400).send({ code: 400, msg: 'username and password are required' });
-    try {
-      const passwordHash = await hashPassword(password);
-      const role = 'guest';
-      const usernameEncrypted = encrypt(username, env.PHI_KEY);
-      const r = await pool.query(
-        'INSERT INTO users(username,username_encrypted,password_hash,role,last_active_at) VALUES($1,$2,$3,$4,NOW()) RETURNING id,username,role',
-        [username, usernameEncrypted, passwordHash, role],
-      );
-      reply.code(201);
-      logger.info(['handler','auth:register','created'], `user=${r.rows[0].username}`);
-      return r.rows[0];
-    } catch (e) { logger.error(['handler','auth:register','error'], e.message); return reply.code(400).send({ code: 400, msg: e.message }); }
+    logger.warn(['handler','auth:register','blocked'], 'public registration disabled');
+    return reply.code(403).send({ code: 403, msg: 'Public self-registration is disabled. Contact an administrator.' });
   });
 
   fastify.post('/api/auth/login', async (request, reply) => {

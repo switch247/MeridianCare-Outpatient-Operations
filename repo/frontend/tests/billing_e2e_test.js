@@ -110,5 +110,5 @@ async function createUser(username, role) {
   assert.equal(canceled.status, 200);
   assert.equal(canceled.body.state, 'cancelled');
 
-  console.log('Phase 4 billing E2E passed');
+  console.log('Billing E2E passed');
 })();

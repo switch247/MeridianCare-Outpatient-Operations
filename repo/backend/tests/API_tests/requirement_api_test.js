@@ -40,10 +40,9 @@ async function createUser(username, role) {
   const auditor = await createUser(`r_audit_${suffix}`, 'auditor');
 
   const badPassword = await request('POST', '/api/auth/register', { username: `bad_${suffix}`, password: 'short', role: 'physician' });
-  assert.equal(badPassword.status, 400);
+  assert.equal(badPassword.status, 403);
   const escalate = await request('POST', '/api/auth/register', { username: `escalate_${suffix}`, password: 'StrongPass123', role: 'admin' });
-  assert.equal(escalate.status, 201);
-  assert.equal(escalate.body.role, 'guest');
+  assert.equal(escalate.status, 403);
 
   const patient = await request('POST', '/api/patients', {
     name: 'Req Test Patient',
@@ -197,7 +196,7 @@ async function createUser(username, role) {
 
   // lockout policy check
   const lockUser = `lock_${suffix}`;
-  await request('POST', '/api/auth/register', { username: lockUser, password: 'StrongPass123', role: 'physician' });
+  await request('POST', '/api/admin/users', { username: lockUser, password: 'StrongPass123', role: 'physician' }, admin.token);
   for (let i = 0; i < 5; i += 1) {
     const bad = await request('POST', '/api/auth/login', { username: lockUser, password: 'WrongPass123' });
     assert.equal(bad.status, 401);

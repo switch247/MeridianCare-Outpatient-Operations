@@ -84,5 +84,5 @@ function req(method, path, body, token) {
   const audits = await req('GET', '/api/audit', null, token);
   assert.equal(audits.status, 403);
 
-  console.log('Phase 2 clinical E2E passed');
+  console.log('Clinical E2E passed');
 })();
