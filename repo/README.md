@@ -24,11 +24,6 @@ Run full suite:
 ./run_tests.sh
 ```
 
-PowerShell equivalent:
-
-```powershell
-.\run_tests.ps1
-```
 Individual checks:
 
 

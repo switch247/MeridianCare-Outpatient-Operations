@@ -11,6 +11,12 @@ services:
     # bind-mount DB files into the repo so data is stored alongside the code
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d meridiancare-clinic"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
 
   backend:
     container_name: t2-backend
@@ -20,12 +26,14 @@ services:
       JWT_SECRET: meridian-local-jwt-secret
       PHI_KEY: meridian-local-phi-key
       PORT: 3000
+      SEED_PASSWORD: Password!123
     ports:
       - "13000:3000"
     volumes:
       - ./data/backups:/app/backups
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   frontend:
     container_name: t2-frontend

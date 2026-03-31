@@ -13,7 +13,9 @@ export class AuthService {
     // Restore user from sessionStorage first, then localStorage (remembered)
     const user = sessionStorage.getItem('user') || localStorage.getItem('user');
     if (user) {
-      this.currentUser.set(JSON.parse(user));
+      const parsed = JSON.parse(user);
+      this.currentUser.set(parsed);
+      if (parsed?.role) this.api.setRole(parsed.role);
       return;
     }
     if (this.api.getToken()) {
@@ -23,7 +25,10 @@ export class AuthService {
           localStorage.setItem('user', JSON.stringify(u));
           if (u?.role) this.api.setRole(u.role);
         },
-        error: () => {},
+        error: () => {
+          // Clear invalid persisted auth state to avoid router redirect loops.
+          this.logout();
+        },
       });
     }
   }
@@ -65,6 +70,8 @@ export class AuthService {
   }
 
   isAuthenticated() {
-    return !!this.api.getToken();
+    const hasToken = !!this.api.getToken();
+    const hasRole = !!this.getRole();
+    return hasToken && hasRole;
   }
 }

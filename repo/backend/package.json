@@ -7,6 +7,9 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "vitest run",
+    "test:api:smoke": "node tests/API_tests/api_smoke_test.js",
+    "test:api:requirements": "node tests/API_tests/requirement_api_test.js",
+    "test:api": "npm run test:api:smoke && npm run test:api:requirements",
     "test:run-single": "vitest run --threads=false",
     "seed": "node src/db/seed.js",
     "test:watch": "vitest"
