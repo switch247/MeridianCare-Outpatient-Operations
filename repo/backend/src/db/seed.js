@@ -25,10 +25,10 @@ async function upsertUser(username, password, role, clinicId) {
   return res.rows[0];
 }
 
-async function upsertPatient(name, allergies = [], contraindications = []) {
+async function upsertPatient(name, allergies = [], contraindications = [], clinicId = null) {
   const found = await pool.query('SELECT id FROM patients WHERE name=$1 LIMIT 1', [name]);
   if (found.rows.length) return found.rows[0].id;
-  const r = await pool.query('INSERT INTO patients (name, allergies, contraindications) VALUES($1,$2,$3) RETURNING id', [name, JSON.stringify(allergies), JSON.stringify(contraindications)]);
+  const r = await pool.query('INSERT INTO patients (name, allergies, contraindications, clinic_id) VALUES($1,$2,$3,$4) RETURNING id', [name, JSON.stringify(allergies), JSON.stringify(contraindications), clinicId]);
   return r.rows[0].id;
 }
 
@@ -42,10 +42,7 @@ async function run() {
 
     const roles = ['physician','pharmacist','billing','inventory','admin','auditor'];
     const runningTests = process.env.NODE_ENV === 'test' || process.argv.join(' ').toLowerCase().includes('vitest');
-    if (!process.env.SEED_PASSWORD && !runningTests) {
-      throw new Error('Missing required environment variable: SEED_PASSWORD');
-    }
-    const password = process.env.SEED_PASSWORD || (runningTests ? 'Password!123' : undefined);
+    const password = process.env.SEED_PASSWORD || 'Password!123';
     const createdUsers = {};
     for (const r of roles) {
       const username = `${r}@local`;
@@ -64,7 +61,7 @@ async function run() {
     ];
     const patientIds = [];
     for (const p of patients) {
-      const id = await upsertPatient(p.name, p.allergies, p.contraindications);
+      const id = await upsertPatient(p.name, p.allergies, p.contraindications, clinicId);
       patientIds.push(id);
     }
     console.log('Patients:', patientIds);
@@ -89,7 +86,7 @@ async function run() {
       encounterId = existingEnc.rows[0].id;
       console.log('Encounter exists', encounterId);
     } else {
-      const encounterRes = await pool.query('INSERT INTO encounters (patient_id, physician_id, chief_complaint, treatment, follow_up, diagnoses, state) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id', [patientIds[0], physicianId, 'Cough and sore throat', 'Supportive care, fluids, rest', 'Return in 7 days if worse', JSON.stringify([{ code: 'J06.9', label: 'URI' }]), 'finalized']);
+      const encounterRes = await pool.query('INSERT INTO encounters (patient_id, physician_id, chief_complaint, treatment, follow_up, diagnoses, state, clinic_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id', [patientIds[0], physicianId, 'Cough and sore throat', 'Supportive care, fluids, rest', 'Return in 7 days if worse', JSON.stringify([{ code: 'J06.9', label: 'URI' }]), 'finalized', clinicId]);
       encounterId = encounterRes.rows[0].id;
       console.log('Created encounter', encounterId);
     }
@@ -102,7 +99,7 @@ async function run() {
 
     const existingInv = await pool.query('SELECT id FROM invoices WHERE patient_id=$1 LIMIT 1', [patientIds[1]]);
     if (!existingInv.rows.length) {
-      await pool.query('INSERT INTO invoices (patient_id, lines, subtotal, plan_discount, coupon_discount, threshold_discount, total, state) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)', [patientIds[1], JSON.stringify([{ description: 'Office visit', amount: 120 }]), 120, 0, 0, 0, 120, 'unpaid']);
+      await pool.query('INSERT INTO invoices (patient_id, lines, subtotal, plan_discount, coupon_discount, threshold_discount, total, state, clinic_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [patientIds[1], JSON.stringify([{ description: 'Office visit', amount: 120 }]), 120, 0, 0, 0, 120, 'unpaid', clinicId]);
       console.log('Created invoice');
     }
 

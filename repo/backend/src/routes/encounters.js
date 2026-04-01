@@ -4,20 +4,32 @@ const logger = require('../lib/logger');
 
 async function encountersRoutes(fastify, opts) {
   fastify.get('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request) => {
+    const isAdmin = request.user && request.user.role === 'admin';
+    const hasClinic = request.user && request.user.clinic_id;
     const patientId = (request.query || {}).patientId;
     if (patientId) {
-      const byPatient = await pool.query(
-        'SELECT * FROM encounters WHERE patient_id=$1 ORDER BY updated_at DESC LIMIT 100',
-        [patientId],
-      );
+      const sql = isAdmin || !hasClinic
+        ? 'SELECT * FROM encounters WHERE patient_id=$1 ORDER BY updated_at DESC LIMIT 100'
+        : 'SELECT * FROM encounters WHERE patient_id=$1 AND clinic_id=$2 ORDER BY updated_at DESC LIMIT 100';
+      const byPatient = await pool.query(sql, isAdmin || !hasClinic ? [patientId] : [patientId, request.user.clinic_id]);
       return byPatient.rows;
     }
-    const allRows = await pool.query('SELECT * FROM encounters ORDER BY updated_at DESC LIMIT 100');
+    const allRows = await pool.query(
+      isAdmin || !hasClinic
+        ? 'SELECT * FROM encounters ORDER BY updated_at DESC LIMIT 100'
+        : 'SELECT * FROM encounters WHERE clinic_id=$1 ORDER BY updated_at DESC LIMIT 100',
+      isAdmin || !hasClinic ? [] : [request.user.clinic_id],
+    );
     return allRows.rows;
   });
 
   fastify.get('/api/encounters/:id', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
-    const result = await pool.query('SELECT * FROM encounters WHERE id=$1', [request.params.id]);
+    const isAdmin = request.user && request.user.role === 'admin';
+    const hasClinic = request.user && request.user.clinic_id;
+    const sql = isAdmin || !hasClinic
+      ? 'SELECT * FROM encounters WHERE id=$1'
+      : 'SELECT * FROM encounters WHERE id=$1 AND clinic_id=$2';
+    const result = await pool.query(sql, isAdmin || !hasClinic ? [request.params.id] : [request.params.id, request.user.clinic_id]);
     if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'Encounter not found' });
     return result.rows[0];
   });
@@ -25,7 +37,10 @@ async function encountersRoutes(fastify, opts) {
   fastify.post('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
     logger.info(['handler','encounters:create'], `create encounter by ${request.user && request.user.username}`);
     const b = request.body || {};
-    const r = await pool.query('INSERT INTO encounters(patient_id,physician_id,chief_complaint,treatment,follow_up,diagnoses) VALUES($1,$2,$3,$4,$5,$6) RETURNING *', [b.patientId, request.user.id, b.chiefComplaint, b.treatment, b.followUp, JSON.stringify(b.diagnoses || [])]);
+    const r = await pool.query(
+      'INSERT INTO encounters(patient_id,physician_id,chief_complaint,treatment,follow_up,diagnoses,clinic_id) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING *',
+      [b.patientId, request.user.id, b.chiefComplaint, b.treatment, b.followUp, JSON.stringify(b.diagnoses || []), request.user.clinic_id || null],
+    );
     await writeAudit({ entityType: 'encounter', entityId: r.rows[0].id, action: 'create', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0], correlationId: request.requestId });
     logger.info(['handler','encounters:create','created'], `encounter=${r.rows[0].id}`);
     reply.code(201); return r.rows[0];
@@ -33,7 +48,12 @@ async function encountersRoutes(fastify, opts) {
 
   fastify.post('/api/encounters/:id/sign', { preHandler: [opts.permit('encounter:sign')] }, async (request, reply) => {
     logger.info(['handler','encounters:sign'], `sign encounter ${request.params.id} by ${request.user && request.user.username}`);
-    const r = await pool.query('SELECT * FROM encounters WHERE id=$1', [request.params.id]);
+    const isAdmin = request.user && request.user.role === 'admin';
+    const hasClinic = request.user && request.user.clinic_id;
+    const sql = isAdmin || !hasClinic
+      ? 'SELECT * FROM encounters WHERE id=$1'
+      : 'SELECT * FROM encounters WHERE id=$1 AND clinic_id=$2';
+    const r = await pool.query(sql, isAdmin || !hasClinic ? [request.params.id] : [request.params.id, request.user.clinic_id]);
     const enc = r.rows[0];
     if (!enc) return reply.code(404).send({ code: 404, msg: 'Encounter not found' });
     const expectedVersion = Number((request.body || {}).expectedVersion || 0);

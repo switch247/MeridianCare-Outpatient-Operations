@@ -1,12 +1,14 @@
 const assert = require('assert');
 const http = require('http');
+const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+const parsedBase = new URL(baseUrl);
 
 function request(method, path, body, token) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const headers = { 'content-type': 'application/json' };
     if (token) headers.authorization = `Bearer ${token}`;
-    const req = http.request({ hostname: 'localhost', port: 3000, path, method, headers }, (res) => {
+    const req = http.request({ hostname: parsedBase.hostname, port: Number(parsedBase.port || 80), path, method, headers }, (res) => {
       let data = '';
       res.on('data', (c) => (data += c));
       res.on('end', () => {

@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ApiService } from './api.service';
+import { firstValueFrom } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -10,26 +11,41 @@ export class AuthService {
 
   bootstrap() {
     this.api.loadTokenFromStorage();
-    // Restore user from sessionStorage first, then localStorage (remembered)
-    const user = sessionStorage.getItem('user') || localStorage.getItem('user');
-    if (user) {
-      const parsed = JSON.parse(user);
-      this.currentUser.set(parsed);
-      if (parsed?.role) this.api.setRole(parsed.role);
-      return;
+    try {
+      const user = sessionStorage.getItem('user') || localStorage.getItem('user');
+      if (user) {
+        const parsed = JSON.parse(user);
+        this.currentUser.set(parsed);
+        if (parsed?.role) this.api.setRole(parsed.role);
+      }
+    } catch {
+      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
+      this.currentUser.set(null);
     }
-    if (this.api.getToken()) {
-      this.api.getMe().subscribe({
-        next: (u: any) => {
-          this.currentUser.set(u);
-          localStorage.setItem('user', JSON.stringify(u));
-          if (u?.role) this.api.setRole(u.role);
-        },
-        error: () => {
-          // Clear invalid persisted auth state to avoid router redirect loops.
-          this.logout();
-        },
+    if (this.api.getToken() && !this.currentUser()) {
+      this.validateSession().catch(() => {
+        this.logout();
       });
+    }
+  }
+
+  async validateSession(): Promise<boolean> {
+    if (!this.api.getToken()) return false;
+    try {
+      const user = (await firstValueFrom(this.api.getMe())) as any;
+      if (!user?.id || !user?.role) {
+        this.logout();
+        return false;
+      }
+      this.currentUser.set(user);
+      if (sessionStorage.getItem('token')) sessionStorage.setItem('user', JSON.stringify(user));
+      else localStorage.setItem('user', JSON.stringify(user));
+      this.api.setRole(user.role);
+      return true;
+    } catch {
+      this.logout();
+      return false;
     }
   }
 

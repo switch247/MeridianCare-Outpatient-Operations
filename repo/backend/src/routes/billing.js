@@ -57,6 +57,12 @@ async function resolveShipping(shipping) {
 }
 
 async function billingRoutes(fastify, opts) {
+  function scopeWhere(request, alias = 'i') {
+    const isAdmin = request.user && request.user.role === 'admin';
+    const clinicId = request.user && request.user.clinic_id;
+    if (isAdmin || !clinicId) return { clause: '', params: [] };
+    return { clause: ` AND ${alias}.clinic_id=$2`, params: [clinicId] };
+  }
   fastify.post('/api/billing/price', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
     logger.info(['handler', 'billing:price'], `price calc requested by ${request.user && request.user.username}`);
     try {
@@ -84,8 +90,8 @@ async function billingRoutes(fastify, opts) {
       const lines = shipping.shippingLine ? [...baseLines, shipping.shippingLine] : baseLines;
       const price = applyDiscounts(lines, b.planPercent, b.couponAmount, b.thresholdRule);
       const r = await pool.query(
-        `INSERT INTO invoices(patient_id,lines,subtotal,plan_discount,coupon_discount,threshold_discount,total,state,payment_ref,payment_metadata,shipping_details,created_by)
-         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+        `INSERT INTO invoices(patient_id,lines,subtotal,plan_discount,coupon_discount,threshold_discount,total,state,payment_ref,payment_metadata,shipping_details,created_by,clinic_id)
+         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
         [
           b.patientId,
           JSON.stringify(lines),
@@ -99,6 +105,7 @@ async function billingRoutes(fastify, opts) {
           JSON.stringify({ manualOnly: true }),
           JSON.stringify(shipping.details),
           request.user.id,
+          request.user.clinic_id || null,
         ],
       );
       logger.info(['handler', 'billing:invoice:create', 'created'], `invoice=${r.rows[0].id}`);
@@ -109,22 +116,27 @@ async function billingRoutes(fastify, opts) {
     }
   });
 
-  fastify.get('/api/invoices', { preHandler: [opts.permit('billing:write')] }, async () => (
-    await pool.query(
+  fastify.get('/api/invoices', { preHandler: [opts.permit('billing:write')] }, async (request) => {
+    const scope = scopeWhere(request);
+    const result = await pool.query(
       `SELECT i.id,i.patient_id,i.lines,i.subtotal,i.total,i.state,i.version,i.created_at,i.payment_ref,i.payment_metadata,i.shipping_details,p.name AS patient_name
        FROM invoices i
        JOIN patients p ON p.id=i.patient_id
+       WHERE 1=1${scope.clause}
        ORDER BY i.id DESC`,
-    )
-  ).rows);
+      scope.params,
+    );
+    return result.rows;
+  });
 
   fastify.get('/api/invoices/:id', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
+    const scope = scopeWhere(request);
     const result = await pool.query(
       `SELECT i.*,p.name AS patient_name
        FROM invoices i
        JOIN patients p ON p.id=i.patient_id
-       WHERE i.id=$1`,
-      [request.params.id],
+       WHERE i.id=$1${scope.clause}`,
+      [request.params.id, ...scope.params],
     );
     if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'Invoice not found' });
     return result.rows[0];
@@ -132,7 +144,11 @@ async function billingRoutes(fastify, opts) {
 
   fastify.post('/api/invoices/:id/payment', { preHandler: [opts.permit('invoice:payment')] }, async (request, reply) => {
     logger.info(['handler', 'billing:payment'], `payment for ${request.params.id} by ${request.user && request.user.username}`);
-    const invoiceRes = await pool.query('SELECT * FROM invoices WHERE id=$1', [request.params.id]);
+    const scope = scopeWhere(request);
+    const invoiceRes = await pool.query(
+      `SELECT * FROM invoices WHERE id=$1${scope.clause}`,
+      [request.params.id, ...scope.params],
+    );
     const invoice = invoiceRes.rows[0];
     if (!invoice) return reply.code(404).send({ code: 404, msg: 'Invoice not found' });
     if (!isInvoiceActionAllowed(invoice.state, 'pay')) {
@@ -151,7 +167,11 @@ async function billingRoutes(fastify, opts) {
   });
 
   fastify.post('/api/invoices/:id/cancel', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
-    const invoiceRes = await pool.query('SELECT * FROM invoices WHERE id=$1', [request.params.id]);
+    const scope = scopeWhere(request);
+    const invoiceRes = await pool.query(
+      `SELECT * FROM invoices WHERE id=$1${scope.clause}`,
+      [request.params.id, ...scope.params],
+    );
     const invoice = invoiceRes.rows[0];
     if (!invoice) return reply.code(404).send({ code: 404, msg: 'Invoice not found' });
     if (!isInvoiceActionAllowed(invoice.state, 'cancel')) {

@@ -11,7 +11,7 @@ import { AdminOpsPageComponent } from './pages/admin-ops-page.component';
 import { MyClinicComponent } from './pages/my-clinic.component';
 
 export const routes: Routes = [
-  { path: 'home', component: HomePageComponent, canActivate: [RoleGuard(['physician', 'pharmacist', 'billing', 'inventory', 'admin', 'auditor', 'guest'])] },
+  { path: 'home', component: HomePageComponent },
   { path: 'encounters', component: PhysicianEncounterPageComponent, canActivate: [RoleGuard(['physician'])] },
   { path: 'pharmacy', component: PharmacistQueuePageComponent, canActivate: [RoleGuard(['pharmacist'])] },
   { path: 'billing', component: InvoicesPageComponent, canActivate: [RoleGuard(['billing', 'admin'])] },

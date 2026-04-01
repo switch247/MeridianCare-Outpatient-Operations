@@ -24,7 +24,6 @@ export class AppComponent {
 
   ngOnInit() {
     this.auth.bootstrap();
-    this.api.getKpis().subscribe({ next: (k: any) => this.kpis.set(k), error: () => {} });
   }
 
   login() {
@@ -34,13 +33,7 @@ export class AppComponent {
         this.auth.onLoginSuccess(res, this.remember);
         this.message.set(`Logged in as ${res.role}`);
         this.busy.set(false);
-        const role = res.role;
-        if (role === 'physician') this.router.navigateByUrl('/encounters');
-        else if (role === 'pharmacist') this.router.navigateByUrl('/pharmacy');
-        else if (role === 'billing') this.router.navigateByUrl('/billing');
-        else if (role === 'inventory') this.router.navigateByUrl('/inventory');
-        else if (role === 'admin') this.router.navigateByUrl('/admin-ops');
-        else this.router.navigateByUrl('/home');
+        this.router.navigateByUrl('/home');
       },
       error: (err: any) => {
         this.message.set(err?.error?.msg || 'Login failed');

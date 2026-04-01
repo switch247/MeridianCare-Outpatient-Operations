@@ -1,66 +1,75 @@
-<div class="shell">
+<div class="min-h-screen text-[#10231b] bg-radial-[circle_at_15%_10%,#f8faf6,#ecf0e8_45%,#e6ebe2] font-['IBM_Plex_Sans','Segoe_UI',Arial,sans-serif]">
   <ng-container *ngIf="!auth.isAuthenticated(); else workspace">
-    <section class="login-screen">
+    <section class="min-h-screen grid grid-cols-[1.4fr_1fr] gap-8 p-12 items-center">
       <div class="login-brand">
-        <p class="eyebrow">MeridianCare</p>
-        <h1>Outpatient Operations</h1>
-        <p class="sub">On-prem clinical, pharmacy, inventory, and billing operations in one secure workspace.</p>
+        <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">MeridianCare</p>
+        <h1 class="m-0 mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-none font-['Space_Grotesk','Segoe_UI',sans-serif]">Outpatient Operations</h1>
+        <p class="m-0 max-w-prose text-[#5f7469] text-base">On-prem clinical, pharmacy, inventory, and billing operations in one secure workspace.</p>
       </div>
-      <form class="login-form" (ngSubmit)="login()">
-        <h2>Local Sign In</h2>
-        <label>Username<input [(ngModel)]="username" name="username" required /></label>
-        <label>Password<input [(ngModel)]="password" name="password" type="password" required /></label>
-        <div class="login-actions">
-          <label class="remember">
+      <form class="login-form bg-[#fbfcf8]/86 border border-[#d4ded6] p-6 grid gap-2 backdrop-blur-[4px]" (ngSubmit)="login()">
+        <h2 class="m-0 text-xl">Local Sign In</h2>
+        <label class="grid gap-1 text-xs uppercase tracking-wide text-[#5f7469]">
+          Username
+          <input class="border border-[#d4ded6] bg-white p-3 text-[#10231b]" [(ngModel)]="username" name="username" required />
+        </label>
+        <label class="grid gap-1 text-xs uppercase tracking-wide text-[#5f7469]">
+          Password
+          <input class="border border-[#d4ded6] bg-white p-3 text-[#10231b]" [(ngModel)]="password" name="password" type="password" required />
+        </label>
+        <div class="login-actions flex items-center justify-between gap-4">
+          <label class="remember flex items-center gap-2 text-sm text-[#5f7469] normal-case tracking-normal">
             <input type="checkbox" [(ngModel)]="remember" name="remember" />
             Remember on this workstation
           </label>
-          <button type="submit" [disabled]="busy() || !username">Sign In</button>
+          <button type="submit" [disabled]="busy() || !username" class="bg-[#0a4f38] text-white px-4 py-2 border border-[#0a4f38] cursor-pointer font-semibold transition-all duration-300 hover:bg-[#0f6a4b] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#cfd8d3] disabled:text-[#6b6b6b] disabled:border-[#e6e6e6]">Sign In</button>
         </div>
-        <p class="status">{{ message() }}</p>
+        <p class="status m-0 min-h-5 text-[#aa2e2e] text-sm">{{ message() }}</p>
       </form>
     </section>
   </ng-container>
 
   <ng-template #workspace>
-    <div class="workspace">
-      <aside class="rail">
+    <div class="workspace min-h-screen grid grid-cols-[280px_1fr]">
+      <aside class="rail p-4 border-r border-[#d4ded6] bg-[#f9fbf7] h-screen flex flex-col justify-between gap-4">
+        <div>
+
         <div class="brand">
-          <p class="eyebrow">MeridianCare</p>
-          <h2>Operations Desk</h2>
+          <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">MeridianCare</p>
+          <h2 class="m-1 mt-1 text-lg">Operations Desk</h2>
         </div>
 
-        <nav class="nav">
-          <a routerLink="/home" routerLinkActive="selected">Home</a>
-          <a *ngIf="hasRole(['physician'])" routerLink="/encounters" routerLinkActive="selected">Encounters</a>
-          <a *ngIf="hasRole(['pharmacist'])" routerLink="/pharmacy" routerLinkActive="selected">Pharmacy Queue</a>
-          <a *ngIf="hasRole(['billing','admin'])" routerLink="/billing" routerLinkActive="selected">Billing & Invoices</a>
-          <a *ngIf="hasRole(['inventory','pharmacist','admin'])" routerLink="/inventory" routerLinkActive="selected">Inventory</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/users" routerLinkActive="selected">User Management</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/credentialing" routerLinkActive="selected">Credentialing</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/admin-ops" routerLinkActive="selected">Admin Ops</a>
-          <a *ngIf="hasRole(['physician','pharmacist','billing','inventory','admin','auditor'])" routerLink="/my-clinic" routerLinkActive="selected">My Clinic</a>
+        <nav class="nav grid gap-1">
+          <a routerLink="/home" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Home</a>
+          <a *ngIf="hasRole(['physician'])" routerLink="/encounters" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Encounters</a>
+          <a *ngIf="hasRole(['pharmacist'])" routerLink="/pharmacy" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Pharmacy Queue</a>
+          <a *ngIf="hasRole(['billing','admin'])" routerLink="/billing" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Billing & Invoices</a>
+          <a *ngIf="hasRole(['inventory','pharmacist','admin'])" routerLink="/inventory" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Inventory</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/users" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">User Management</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/credentialing" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Credentialing</a>
+          <a *ngIf="hasRole(['admin'])" routerLink="/admin-ops" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Admin Ops</a>
+          <a *ngIf="hasRole(['physician','pharmacist','billing','inventory','admin','auditor'])" routerLink="/my-clinic" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">My Clinic</a>
         </nav>
+        </div>
 
-        <section class="profile" *ngIf="auth.currentUser() as user">
-          <div class="avatar">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
+        <section class="profile flex items-center gap-3 pt-3 border-t border-[#d4ded6]" *ngIf="auth.currentUser() as user">
+          <div class="avatar w-10 h-10 bg-[#0a4f38] text-white flex items-center justify-center font-bold">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
           <div>
-            <p class="name">{{ user?.username }}</p>
-            <p class="meta">{{ user?.role }}</p>
+            <p class="name m-0 text-sm font-medium">{{ user?.username }}</p>
+            <p class="meta m-0 text-xs text-[#5f7469]">{{ user?.role }}</p>
           </div>
+          <button class="signout bg-[#0f6a4b] text-white px-3 py-1 border border-[#0a4f38] cursor-pointer font-semibold transition-all duration-300 hover:bg-[#0a4f38] hover:-translate-y-0.5" (click)="logout()">Sign Out</button>
         </section>
 
-        <button class="signout" (click)="logout()">Sign Out</button>
       </aside>
 
       <main class="canvas">
-        <header class="topbar">
+        <header class="topbar p-4">
           <div>
-            <p class="eyebrow">Current role</p>
-            <h2>{{ auth.getRole() | titlecase }}</h2>
+            <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">Current role</p>
+            <h2 class="m-0 text-xl font-semibold">{{ auth.getRole() | titlecase }}</h2>
           </div>
         </header>
-        <section class="surface">
+        <section class="surface p-4">
           <router-outlet></router-outlet>
         </section>
       </main>

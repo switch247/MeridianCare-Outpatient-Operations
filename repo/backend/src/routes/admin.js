@@ -9,6 +9,26 @@ const { forecastFromModel, topMedicationRecommendations, similarPrescriptionSugg
 const logger = require('../lib/logger');
 
 async function adminRoutes(fastify, opts) {
+  async function resolveNodeAssignment(preferredNodeId) {
+    if (preferredNodeId) return preferredNodeId;
+    const workers = (await pool.query(
+      `SELECT COALESCE(node_id,'node-1') AS node_id, COUNT(*)::int AS active_count
+       FROM crawler_jobs
+       WHERE state IN ('queued','retry_wait')
+       GROUP BY COALESCE(node_id,'node-1')
+       ORDER BY active_count ASC, node_id ASC`,
+    )).rows;
+    if (!workers.length) return 'node-1';
+    return workers[0].node_id;
+  }
+
+  async function autoscaleSignal() {
+    const queueDepth = Number((await pool.query("SELECT COUNT(*)::int AS count FROM crawler_jobs WHERE state IN ('queued','retry_wait')")).rows[0].count);
+    const nodeCount = Number((await pool.query('SELECT COUNT(DISTINCT COALESCE(node_id,\'node-1\'))::int AS count FROM crawler_jobs')).rows[0].count || 1);
+    const desiredNodes = Math.max(1, Math.min(8, Math.ceil(queueDepth / 5)));
+    return { queueDepth, nodeCount, desiredNodes, scaleOutRecommended: desiredNodes > nodeCount };
+  }
+
   fastify.post('/api/admin/users', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     if (!request.user || request.user.role !== 'admin') return reply.code(403).send({ code: 403, msg: 'Admin role required' });
     const b = request.body || {};
@@ -29,10 +49,12 @@ async function adminRoutes(fastify, opts) {
   fastify.post('/api/crawler/run', { preHandler: [opts.permit('*')] }, async (request, reply) => {
     logger.info(['handler', 'admin:crawler:run'], `crawl requested by ${request.user && request.user.username}`);
     const body = request.body || {};
+    const assignedNodeId = await resolveNodeAssignment(body.nodeId || null);
     const result = await pool.query(
       'INSERT INTO crawler_jobs(source_name,priority,state,checkpoint,next_retry_at,node_id) VALUES($1,$2,$3,$4,NOW(),$5) RETURNING *',
-      [body.sourceName || 'manual-ingest', Number(body.priority || 5), 'queued', JSON.stringify({ stage: 'collect', processed: 0 }), body.nodeId || null],
+      [body.sourceName || 'manual-ingest', Number(body.priority || 5), 'queued', JSON.stringify({ stage: 'collect', processed: 0 }), assignedNodeId],
     );
+    const scaling = await autoscaleSignal();
     reply.code(201);
     return {
       ...result.rows[0],
@@ -40,7 +62,7 @@ async function adminRoutes(fastify, opts) {
       retry: { strategy: 'exponential_backoff', startSeconds: 30, maxSeconds: 900 },
       checkpoint: 'incremental',
       loadBalancing: true,
-      autoScale: true,
+      autoScale: scaling,
       idempotent: true,
     };
   });
@@ -153,17 +175,23 @@ async function adminRoutes(fastify, opts) {
     };
   });
 
-  fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('*')] }, async () => {
-    const encounterRows = (await pool.query('SELECT created_at FROM encounters ORDER BY created_at ASC')).rows;
-    const series = dateSeriesFromRows(encounterRows, Date.now(), 30);
-    const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['visit_volume'])).rows[0];
-    const forecast = forecastFromModel(series, deployedModel);
-    return {
-      model: deployedModel ? deployedModel.version_tag : 'baseline-default',
-      algorithm: forecast.algorithm,
-      history: series,
-      forecast: forecast.points,
-    };
+  fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+    logger.info(['handler', 'admin:forecasts'], `forecasts requested by ${request.user && request.user.username}`);
+    try {
+      const encounterRows = (await pool.query('SELECT created_at FROM encounters ORDER BY created_at ASC')).rows;
+      const series = dateSeriesFromRows(encounterRows, Date.now(), 30);
+      const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['visit_volume'])).rows[0];
+      const forecast = forecastFromModel(series, deployedModel);
+      return {
+        model: deployedModel ? deployedModel.version_tag : 'baseline-default',
+        algorithm: forecast.algorithm,
+        history: series,
+        forecast: forecast.points,
+      };
+    } catch (error) {
+      logger.error(['handler', 'admin:forecasts'], `Error in forecasts: ${error.message}`, { error: error.stack });
+      return reply.code(500).send({ code: 500, msg: 'Internal server error' });
+    }
   });
 
   fastify.get('/api/admin/recommendations', { preHandler: [opts.permit('*')] }, async () => {
@@ -195,22 +223,29 @@ async function adminRoutes(fastify, opts) {
     return { rolledBackFrom: current.id, rolledBackTo: target.id };
   });
 
-  fastify.get('/api/observability/kpis', { preHandler: [opts.permit('*')] }, async () => {
-    logger.info(['handler', 'admin:kpis'], 'kpis requested');
-    const invoices = await pool.query('SELECT COUNT(*)::int AS count FROM invoices');
-    const paid = await pool.query("SELECT COUNT(*)::int AS count FROM invoices WHERE state='paid'");
-    const rx = await pool.query('SELECT COUNT(*)::int AS count FROM prescriptions');
-    const dispensed = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='dispensed'");
-    const cancelled = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='voided'");
-    const orderVolume = Number(invoices.rows[0].count);
-    const acceptanceRate = Number(rx.rows[0].count) === 0 ? 0 : Number(dispensed.rows[0].count) / Number(rx.rows[0].count);
-    const cancellationRate = Number(rx.rows[0].count) === 0 ? 0 : Number(cancelled.rows[0].count) / Number(rx.rows[0].count);
-    return {
-      orderVolume,
-      acceptanceRate: Number(acceptanceRate.toFixed(3)),
-      fulfillmentTimeMinutes: 0,
-      cancellationRate: Number(cancellationRate.toFixed(3)),
-    };
+  fastify.get('/api/observability/kpis', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+    if (typeof fastify.auth === 'function') await fastify.auth(request, reply);
+    if (!request.user) return;
+    logger.info(['handler', 'admin:kpis'], `kpis requested by ${request.user && request.user.username}`);
+    try {
+      const invoices = await pool.query('SELECT COUNT(*)::int AS count FROM invoices');
+      const paid = await pool.query("SELECT COUNT(*)::int AS count FROM invoices WHERE state='paid'");
+      const rx = await pool.query('SELECT COUNT(*)::int AS count FROM prescriptions');
+      const dispensed = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='dispensed'");
+      const cancelled = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='voided'");
+      const orderVolume = Number(invoices.rows[0].count);
+      const acceptanceRate = Number(rx.rows[0].count) === 0 ? 0 : Number(dispensed.rows[0].count) / Number(rx.rows[0].count);
+      const cancellationRate = Number(rx.rows[0].count) === 0 ? 0 : Number(cancelled.rows[0].count) / Number(rx.rows[0].count);
+      return {
+        orderVolume,
+        acceptanceRate: Number(acceptanceRate.toFixed(3)),
+        fulfillmentTimeMinutes: 0,
+        cancellationRate: Number(cancellationRate.toFixed(3)),
+      };
+    } catch (error) {
+      logger.error(['handler', 'admin:kpis'], `Error in kpis: ${error.message}`, { error: error.stack });
+      return reply.code(500).send({ code: 500, msg: 'Internal server error' });
+    }
   });
 
   fastify.post('/api/observability/exceptions', { preHandler: [opts.permit('*')] }, async (request, reply) => {

@@ -50,6 +50,7 @@ import { ApiService } from '../services/api.service';
         </table>
       </article>
       <p class="msg">{{ message }}</p>
+      <p *ngIf="patientAccessDenied" class="deny">Permission denied: patient directory is unavailable for your account.</p>
       <!-- Modal for creating invoice -->
       <div *ngIf="modalOpen" class="modal-wrap">
         <div class="modal-backdrop" (click)="closeModal()"></div>
@@ -175,6 +176,7 @@ import { ApiService } from '../services/api.service';
     .receipt-lines { width: 100%; border-collapse: collapse; margin-top: .4rem; }
     .receipt-lines th, .receipt-lines td { padding: .3rem .45rem; border-bottom: 1px solid #eef5ef; font-size: .86rem; }
     .msg { margin: 0; color: #8b2a2a; }
+    .deny { margin: 0; color: #8b2a2a; font-weight: 600; }
     @media (max-width: 1100px) { .grid4 { grid-template-columns: 1fr; } }
   `],
 })
@@ -205,6 +207,7 @@ export class InvoicesPageComponent {
   receiptModel: any = null;
   patients: any[] = [];
   patientFilter = '';
+  patientAccessDenied = false;
 
   constructor(private api: ApiService) {
     this.loadInvoices();
@@ -324,7 +327,16 @@ export class InvoicesPageComponent {
   }
 
   loadPatients() {
-    this.api.getPatients().subscribe({ next: (res: any) => { this.patients = res || []; }, error: () => { this.patients = []; } });
+    this.api.getPatients().subscribe({
+      next: (res: any) => {
+        this.patients = res || [];
+        this.patientAccessDenied = false;
+      },
+      error: (err: any) => {
+        this.patients = [];
+        this.patientAccessDenied = err?.status === 401 || err?.status === 403;
+      },
+    });
   }
 
   filteredPatients() {

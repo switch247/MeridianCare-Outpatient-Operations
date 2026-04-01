@@ -1,41 +1,356 @@
-import { Component, Input } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
+import { ApiService } from '../services/api.service';
+import { AuthService } from '../services/auth.service';
 
 @Component({
   selector: 'app-home-page',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
-    <section class="home-wrap">
-      <div class="kpi-grid">
-        <article>
-          <p class="label">Order Volume</p>
-          <p class="value">{{ kpis?.orderVolume ?? 0 }}</p>
-        </article>
-        <article>
-          <p class="label">Acceptance Rate</p>
-          <p class="value">{{ kpis?.acceptanceRate ?? 0 }}</p>
-        </article>
-        <article>
-          <p class="label">Fulfillment Time (min)</p>
-          <p class="value">{{ kpis?.fulfillmentTimeMinutes ?? 0 }}</p>
-        </article>
-        <article>
-          <p class="label">Cancellation Rate</p>
-          <p class="value">{{ kpis?.cancellationRate ?? 0 }}</p>
-        </article>
+    <div class="min-h-screen bg-gray-50 p-6">
+      <div class="max-w-7xl mx-auto space-y-6">
+        <!-- Welcome Header -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h1 class="text-2xl font-bold text-gray-900 mb-2">Welcome to MeridianCare Operations</h1>
+          <p class="text-gray-600">Your healthcare operations dashboard</p>
+          <div class="mt-4 flex items-center space-x-4">
+            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              Role: {{ auth.user()?.role || 'Unknown' }}
+            </span>
+            <span class="text-sm text-gray-500">
+              Last login: {{ new Date().toLocaleDateString() }}
+            </span>
+          </div>
+        </div>
+
+        <!-- System Status -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">System Status</h2>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="flex items-center p-4 bg-green-50 rounded-lg border border-green-200">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-green-900">Backend Services</p>
+                <p class="text-xs text-green-600">All systems operational</p>
+              </div>
+            </div>
+
+            <div class="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-blue-900">Database</p>
+                <p class="text-xs text-blue-600">Connected and healthy</p>
+              </div>
+            </div>
+
+            <div class="flex items-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" clip-rule="evenodd"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-purple-900">Active Users</p>
+                <p class="text-xs text-purple-600">Multiple users online</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPIs Section -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Key Performance Indicators</h2>
+          <div *ngIf="kpis(); else loadingKPIs" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-blue-600">Order Volume</p>
+                  <p class="text-2xl font-bold text-blue-900">{{ kpis()?.orderVolume ?? 0 }}</p>
+                </div>
+                <div class="text-blue-500">
+                  <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-green-600">Acceptance Rate</p>
+                  <p class="text-2xl font-bold text-green-900">{{ ((kpis()?.acceptanceRate ?? 0) * 100).toFixed(1) }}%</p>
+                </div>
+                <div class="text-green-500">
+                  <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 p-4 rounded-lg border border-yellow-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-yellow-600">Fulfillment Time</p>
+                  <p class="text-2xl font-bold text-yellow-900">{{ kpis()?.fulfillmentTimeMinutes ?? 0 }} min</p>
+                </div>
+                <div class="text-yellow-500">
+                  <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm font-medium text-red-600">Cancellation Rate</p>
+                  <p class="text-2xl font-bold text-red-900">{{ ((kpis()?.cancellationRate ?? 0) * 100).toFixed(1) }}%</p>
+                </div>
+                <div class="text-red-500">
+                  <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ng-template #loadingKPIs>
+            <div class="flex items-center justify-center py-8">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              <span class="ml-2 text-gray-600">Loading KPIs...</span>
+            </div>
+          </ng-template>
+        </div>
+
+        <!-- Recent Operations -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Recent Operations</h2>
+          <div *ngIf="overview(); else loadingOverview" class="space-y-3">
+            <div *ngFor="let operation of overview()?.recentOperations" class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div class="flex items-center space-x-3">
+                <div class="flex-shrink-0">
+                  <div *ngIf="operation.type === 'audit'" class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                  </div>
+                  <div *ngIf="operation.type === 'invoice'" class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"></path>
+                    </svg>
+                  </div>
+                  <div *ngIf="operation.type === 'inventory'" class="w-8 h-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                    <svg class="w-4 h-4 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                    </svg>
+                  </div>
+                </div>
+                <div>
+                  <p class="text-sm font-medium text-gray-900 capitalize">{{ operation.type }}</p>
+                  <p class="text-xs text-gray-500">{{ new Date(operation.when).toLocaleString() }}</p>
+                </div>
+              </div>
+              <div class="text-sm text-gray-700">{{ operation.summary }}</div>
+            </div>
+          </div>
+          <ng-template #loadingOverview>
+            <div class="flex items-center justify-center py-8">
+              <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+              <span class="ml-2 text-gray-600">Loading recent operations...</span>
+            </div>
+          </ng-template>
+          <div *ngIf="overview() && !overview()?.recentOperations?.length" class="text-center py-8 text-gray-500">
+            <svg class="w-12 h-12 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <p>No recent operations to display</p>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a *ngIf="auth.can('encounter:write')" routerLink="/encounters" class="flex items-center p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-blue-900">New Encounter</p>
+                <p class="text-xs text-blue-600">Create patient encounter</p>
+              </div>
+            </a>
+
+            <a *ngIf="auth.can('prescription:write')" routerLink="/pharmacy" class="flex items-center p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-green-900">Pharmacy</p>
+                <p class="text-xs text-green-600">Manage prescriptions</p>
+              </div>
+            </a>
+
+            <a *ngIf="auth.can('billing:write')" routerLink="/billing" class="flex items-center p-4 bg-yellow-50 rounded-lg border border-yellow-200 hover:bg-yellow-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-yellow-900">Billing</p>
+                <p class="text-xs text-yellow-600">Manage invoices</p>
+              </div>
+            </a>
+
+            <a *ngIf="auth.can('inventory:write')" routerLink="/inventory" class="flex items-center p-4 bg-purple-50 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-purple-900">Inventory</p>
+                <p class="text-xs text-purple-600">Manage stock</p>
+              </div>
+            </a>
+
+            <a *ngIf="auth.can('audit:read')" routerLink="/admin-ops" class="flex items-center p-4 bg-red-50 rounded-lg border border-red-200 hover:bg-red-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-red-900">Admin Ops</p>
+                <p class="text-xs text-red-600">System administration</p>
+              </div>
+            </a>
+
+            <a routerLink="/my-clinic" class="flex items-center p-4 bg-indigo-50 rounded-lg border border-indigo-200 hover:bg-indigo-100 transition-colors">
+              <div class="flex-shrink-0">
+                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+              </div>
+              <div class="ml-3">
+                <p class="text-sm font-medium text-indigo-900">My Clinic</p>
+                <p class="text-xs text-indigo-600">View clinic information</p>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- Role-Specific Information -->
+        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+          <h2 class="text-xl font-semibold text-gray-900 mb-4">Your Role & Permissions</h2>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h3 class="text-lg font-medium text-gray-900 mb-2">{{ auth.user()?.role | titlecase }}</h3>
+              <p class="text-gray-600 mb-4">
+                <span *ngIf="auth.user()?.role === 'admin'">You have full system access and can manage all aspects of the clinic operations.</span>
+                <span *ngIf="auth.user()?.role === 'physician'">You can create and manage patient encounters and prescriptions.</span>
+                <span *ngIf="auth.user()?.role === 'pharmacist'">You can review, approve, and dispense prescriptions.</span>
+                <span *ngIf="auth.user()?.role === 'billing'">You can manage invoices and billing operations.</span>
+                <span *ngIf="auth.user()?.role === 'inventory'">You can manage inventory and stock levels.</span>
+                <span *ngIf="auth.user()?.role === 'auditor'">You can view audit logs and system reports.</span>
+              </p>
+              <div class="space-y-2">
+                <div *ngIf="auth.can('encounter:write')" class="flex items-center text-sm text-green-600">
+                  <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  Can create patient encounters
+                </div>
+                <div *ngIf="auth.can('prescription:write')" class="flex items-center text-sm text-green-600">
+                  <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  Can write prescriptions
+                </div>
+                <div *ngIf="auth.can('billing:write')" class="flex items-center text-sm text-green-600">
+                  <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  Can manage billing
+                </div>
+                <div *ngIf="auth.can('inventory:write')" class="flex items-center text-sm text-green-600">
+                  <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  Can manage inventory
+                </div>
+                <div *ngIf="auth.can('audit:read')" class="flex items-center text-sm text-green-600">
+                  <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                  </svg>
+                  Can view audit logs
+                </div>
+              </div>
+            </div>
+            <div>
+              <h3 class="text-lg font-medium text-gray-900 mb-2">Quick Stats</h3>
+              <div class="space-y-3">
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm text-gray-600">Total Patients</span>
+                  <span class="text-sm font-medium text-gray-900">{{ overview()?.kpis?.orderVolume ?? 0 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm text-gray-600">Active Prescriptions</span>
+                  <span class="text-sm font-medium text-gray-900">{{ kpis()?.orderVolume ?? 0 }}</span>
+                </div>
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                  <span class="text-sm text-gray-600">Pending Invoices</span>
+                  <span class="text-sm font-medium text-gray-900">{{ (kpis()?.orderVolume ?? 0) - (kpis()?.acceptanceRate ?? 0) * (kpis()?.orderVolume ?? 0) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    </section>
+    </div>
   `,
-  styles: [`
-    .home-wrap { display: grid; gap: .8rem; }
-    .kpi-grid { display: grid; gap: .7rem; grid-template-columns: repeat(4, 1fr); }
-    article { border: 1px solid #d6e2d8; padding: .9rem; background: #f7fbf8; }
-    .label { margin: 0; color: #5f7469; font-size: .82rem; }
-    .value { margin: .3rem 0 0; font-size: 1.25rem; color: #0f6a4b; }
-    @media (max-width: 980px) { .kpi-grid { grid-template-columns: 1fr; } }
-  `],
+  styles: [],
 })
-export class HomePageComponent {
-  @Input() kpis: any = {};
+export class HomePageComponent implements OnInit {
+  kpis = signal<any>(null);
+  overview = signal<any>(null);
+
+  constructor(private api: ApiService, public auth: AuthService) {}
+
+  ngOnInit() {
+    this.loadData();
+  }
+
+  loadData() {
+    // Load KPIs
+    this.api.getKpis().subscribe({
+      next: (kpis: any) => this.kpis.set(kpis),
+      error: (err) => console.error('Failed to load KPIs:', err)
+    });
+
+    // Load overview data
+    this.api.getOverview().subscribe({
+      next: (overview: any) => this.overview.set(overview),
+      error: (err) => console.error('Failed to load overview:', err)
+    });
+  }
 }

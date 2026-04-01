@@ -5,11 +5,6 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../lib/logger');
 
 async function authRoutes(fastify, opts) {
-  fastify.post('/api/auth/register', async (request, reply) => {
-    logger.warn(['handler','auth:register','blocked'], 'public registration disabled');
-    return reply.code(403).send({ code: 403, msg: 'Public self-registration is disabled. Contact an administrator.' });
-  });
-
   fastify.post('/api/auth/login', async (request, reply) => {
     logger.info(['handler','auth:login'], `login attempt for ${request.body && request.body.username}`);
     const { username, password } = request.body || {};
@@ -52,8 +47,8 @@ async function authRoutes(fastify, opts) {
         const user = r.rows[0] || null;
         return user;
       } catch (e) {
-        logger.error(['handler','auth:me','error'], e.message);
-        return reply.code(500).send({ code: 500, msg: 'Internal server error' });
+        logger.warn(['handler','auth:me','unauthorized'], e.message);
+        return reply.code(401).send({ code: 401, msg: 'Unauthorized' });
       }
     });
 

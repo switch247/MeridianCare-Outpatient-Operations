@@ -1,10 +1,12 @@
 const assert = require('assert');
 const http = require('http');
+const baseUrl = process.env.API_BASE_URL || 'http://localhost:3000';
+const parsedBase = new URL(baseUrl);
 
 function req(method, path, body) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
-    const options = { hostname: 'localhost', port: 3000, path, method, headers: { 'content-type': 'application/json' } };
+    const options = { hostname: parsedBase.hostname, port: Number(parsedBase.port || 80), path, method, headers: { 'content-type': 'application/json' } };
     const r = http.request(options, (res) => {
       let data = '';
       res.on('data', (c) => (data += c));
@@ -20,8 +22,8 @@ function makeAuthedReq(token) {
   return (method, path, body) => new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const options = {
-      hostname: 'localhost',
-      port: 3000,
+      hostname: parsedBase.hostname,
+      port: Number(parsedBase.port || 80),
       path,
       method,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },

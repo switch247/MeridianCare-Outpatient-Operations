@@ -1,5 +1,12 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const forecastStrategies = new Map();
+
+function registerForecastStrategy(key, strategy) {
+  if (!key || typeof strategy !== 'function') throw new Error('Invalid forecasting strategy');
+  forecastStrategies.set(key, strategy);
+}
+
 function movingAverage(values, windowSize = 3) {
   if (!values.length) return 0;
   const slice = values.slice(Math.max(0, values.length - windowSize));
@@ -7,7 +14,7 @@ function movingAverage(values, windowSize = 3) {
   return sum / slice.length;
 }
 
-function baselineForecast(dailyCounts) {
+function baselineMovingAverageStrategy(dailyCounts) {
   const values = dailyCounts.map((d) => Number(d.count || 0));
   const avg = movingAverage(values, 7);
   return Array.from({ length: 7 }, (_, idx) => ({
@@ -16,9 +23,9 @@ function baselineForecast(dailyCounts) {
   }));
 }
 
-function trendForecast(dailyCounts) {
+function trendRegressionStrategy(dailyCounts) {
   const values = dailyCounts.map((d) => Number(d.count || 0));
-  if (values.length < 2) return baselineForecast(dailyCounts);
+  if (values.length < 2) return baselineMovingAverageStrategy(dailyCounts);
   const first = values[0];
   const last = values[values.length - 1];
   const slope = (last - first) / Math.max(1, values.length - 1);
@@ -29,12 +36,23 @@ function trendForecast(dailyCounts) {
   }));
 }
 
+registerForecastStrategy('baseline_moving_average', baselineMovingAverageStrategy);
+registerForecastStrategy('baseline', baselineMovingAverageStrategy);
+registerForecastStrategy('trend_regression', trendRegressionStrategy);
+registerForecastStrategy('regression', trendRegressionStrategy);
+
+function resolveStrategyKey(algorithm) {
+  const normalized = String(algorithm || '').toLowerCase();
+  if (forecastStrategies.has(normalized)) return normalized;
+  if (normalized.includes('trend') || normalized.includes('regression')) return 'trend_regression';
+  return 'baseline_moving_average';
+}
+
 function forecastFromModel(dailyCounts, deployedModel) {
-  const algorithm = (deployedModel && deployedModel.algorithm) || 'baseline_moving_average';
-  if (algorithm.includes('trend') || algorithm.includes('regression')) {
-    return { algorithm, points: trendForecast(dailyCounts) };
-  }
-  return { algorithm, points: baselineForecast(dailyCounts) };
+  const requestedAlgorithm = (deployedModel && deployedModel.algorithm) || 'baseline_moving_average';
+  const strategyKey = resolveStrategyKey(requestedAlgorithm);
+  const strategy = forecastStrategies.get(strategyKey) || baselineMovingAverageStrategy;
+  return { algorithm: strategyKey, points: strategy(dailyCounts) };
 }
 
 function topMedicationRecommendations(prescriptionRows, limit = 5) {
@@ -54,13 +72,7 @@ function toVector(row) {
   const doseNum = Number(String(row.dose || '').replace(/[^\d.]/g, '')) || 0;
   const qty = Number(row.quantity || 0);
   const route = String(row.route || '').toLowerCase();
-  return [
-    doseNum,
-    qty,
-    route === 'oral' ? 1 : 0,
-    route === 'iv' ? 1 : 0,
-    route === 'topical' ? 1 : 0,
-  ];
+  return [doseNum, qty, route === 'oral' ? 1 : 0, route === 'iv' ? 1 : 0, route === 'topical' ? 1 : 0];
 }
 
 function cosineSimilarity(a, b) {
@@ -107,6 +119,7 @@ function dateSeriesFromRows(rows, now = Date.now(), days = 30) {
 
 module.exports = {
   forecastFromModel,
+  registerForecastStrategy,
   topMedicationRecommendations,
   similarPrescriptionSuggestions,
   dateSeriesFromRows,

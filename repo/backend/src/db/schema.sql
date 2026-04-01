@@ -30,12 +30,16 @@ CREATE TABLE IF NOT EXISTS clinics (
 CREATE TABLE IF NOT EXISTS patients (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), name TEXT NOT NULL, ssn_encrypted TEXT,
   allergies JSONB NOT NULL DEFAULT '[]'::jsonb, contraindications JSONB NOT NULL DEFAULT '[]'::jsonb,
+  clinic_id UUID REFERENCES clinics(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
 CREATE TABLE IF NOT EXISTS icd_catalog (code TEXT PRIMARY KEY, label TEXT NOT NULL, active BOOLEAN NOT NULL DEFAULT TRUE, version_tag TEXT NOT NULL DEFAULT 'local-v1');
 CREATE TABLE IF NOT EXISTS encounters (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), patient_id UUID NOT NULL REFERENCES patients(id), physician_id UUID NOT NULL REFERENCES users(id),
   chief_complaint TEXT NOT NULL, treatment TEXT NOT NULL, follow_up TEXT NOT NULL, diagnoses JSONB NOT NULL DEFAULT '[]'::jsonb,
-  state TEXT NOT NULL DEFAULT 'draft', version INT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  state TEXT NOT NULL DEFAULT 'draft', version INT NOT NULL DEFAULT 1, clinic_id UUID REFERENCES clinics(id), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE encounters ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
+ALTER TABLE encounters ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 CREATE TABLE IF NOT EXISTS prescriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), encounter_id UUID NOT NULL REFERENCES encounters(id), patient_id UUID NOT NULL REFERENCES patients(id),
   prescriber_id UUID NOT NULL REFERENCES users(id), drug_name TEXT NOT NULL, dose TEXT NOT NULL, route TEXT NOT NULL, quantity INT NOT NULL,
@@ -50,11 +54,12 @@ CREATE TABLE IF NOT EXISTS inventory_movements (
 CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), patient_id UUID NOT NULL REFERENCES patients(id), lines JSONB NOT NULL DEFAULT '[]'::jsonb,
   subtotal NUMERIC(12,2) NOT NULL DEFAULT 0, plan_discount NUMERIC(12,2) NOT NULL DEFAULT 0, coupon_discount NUMERIC(12,2) NOT NULL DEFAULT 0,
-  threshold_discount NUMERIC(12,2) NOT NULL DEFAULT 0, total NUMERIC(12,2) NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'unpaid', payment_ref TEXT, version INT NOT NULL DEFAULT 1);
+  threshold_discount NUMERIC(12,2) NOT NULL DEFAULT 0, total NUMERIC(12,2) NOT NULL DEFAULT 0, state TEXT NOT NULL DEFAULT 'unpaid', payment_ref TEXT, version INT NOT NULL DEFAULT 1, clinic_id UUID REFERENCES clinics(id));
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS shipping_details JSONB NOT NULL DEFAULT '{}'::jsonb;
 ALTER TABLE invoices ADD COLUMN IF NOT EXISTS created_by UUID REFERENCES users(id);
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
 CREATE TABLE IF NOT EXISTS credentialing_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), entity_type TEXT NOT NULL, full_name TEXT NOT NULL, license_number TEXT,
   license_expiry DATE, status TEXT NOT NULL DEFAULT 'pending', version INT NOT NULL DEFAULT 1);

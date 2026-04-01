@@ -10,9 +10,9 @@ describe('auth negative cases', () => {
   });
   afterAll(async () => { try { await app.close(); } catch (e) {} });
 
-  it('returns 403 for public registration', async () => {
+  it('does not expose public registration endpoint', async () => {
     const res = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { username: 'x', password: 'p' } });
-    expect(res.statusCode).toBe(403);
+    expect(res.statusCode).toBe(404);
   });
 
   it('forbids non-admin from creating admin user', async () => {

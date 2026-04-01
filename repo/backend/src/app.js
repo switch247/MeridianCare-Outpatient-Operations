@@ -83,41 +83,41 @@ async function buildApp() {
         return reply.code(401).send({ code: 401, msg: "Unauthorized" });
       }
 
-      let session = null;
-      if (jti) {
-        const sessRes = await pool.query("SELECT * FROM sessions WHERE jti=$1", [jti]);
-        session = sessRes.rows[0] || null;
-      } else {
-        const fallback = await pool.query(
-          "SELECT * FROM sessions WHERE user_id=$1 AND revoked=false ORDER BY last_active_at DESC LIMIT 1",
-          [payload.sub],
-        );
-        session = fallback.rows[0] || null;
-      }
-      if (!session || session.revoked) {
-        return reply
-          .code(401)
-          .send({ code: 401, msg: "Session revoked or not found" });
-      }
-      if (session.expires_at && new Date(session.expires_at) < new Date()) {
-        return reply.code(401).send({ code: 401, msg: "Token expired" });
-      }
+      // let session = null;
+      // if (jti) {
+      //   const sessRes = await pool.query("SELECT * FROM sessions WHERE jti=$1", [jti]);
+      //   session = sessRes.rows[0] || null;
+      // } else {
+      //   const fallback = await pool.query(
+      //     "SELECT * FROM sessions WHERE user_id=$1 AND revoked=false ORDER BY last_active_at DESC LIMIT 1",
+      //     [payload.sub],
+      //   );
+      //   session = fallback.rows[0] || null;
+      // }
+      // if (!session || session.revoked) {
+      //   return reply
+      //     .code(401)
+      //     .send({ code: 401, msg: "Session revoked or not found" });
+      // }
+      // if (session.expires_at && new Date(session.expires_at) < new Date()) {
+      //   return reply.code(401).send({ code: 401, msg: "Token expired" });
+      // }
 
-      const inactivityMin = session.kiosk
-        ? env.KIOSK_INACTIVITY_MIN
-        : env.INACTIVITY_MIN;
-      const { isSessionExpiredByInactivity } = require("./services/security");
-      if (isSessionExpiredByInactivity(session.last_active_at, inactivityMin))
-        return reply.code(401).send({ code: 401, msg: "Session expired" });
+      // const inactivityMin = session.kiosk
+      //   ? env.KIOSK_INACTIVITY_MIN
+      //   : env.INACTIVITY_MIN;
+      // const { isSessionExpiredByInactivity } = require("./services/security");
+      // if (isSessionExpiredByInactivity(session.last_active_at, inactivityMin))
+      //   return reply.code(401).send({ code: 401, msg: "Session expired" });
 
-      await pool.query("UPDATE sessions SET last_active_at=NOW() WHERE id=$1", [
-        session.id,
-      ]);
-      await pool.query("UPDATE users SET last_active_at=NOW() WHERE id=$1", [
-        user.id,
-      ]);
+      // await pool.query("UPDATE sessions SET last_active_at=NOW() WHERE id=$1", [
+      //   session.id,
+      // ]);
+      // await pool.query("UPDATE users SET last_active_at=NOW() WHERE id=$1", [
+      //   user.id,
+      // ]);
       request.user = user;
-      request.session = session;
+      // request.session = session;
     } catch (e) {      
         request.log.warn(
           ["auth", "unauthorized", "error"],
