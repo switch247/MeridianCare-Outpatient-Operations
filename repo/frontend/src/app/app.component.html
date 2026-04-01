@@ -1,75 +1,142 @@
-<div class="min-h-screen text-[#10231b] bg-radial-[circle_at_15%_10%,#f8faf6,#ecf0e8_45%,#e6ebe2] font-['IBM_Plex_Sans','Segoe_UI',Arial,sans-serif]">
+<div class="min-h-screen text-[#10231b] bg-gradient-to-br from-[#f8faf6] via-[#ecf0e8] to-[#e6ebe2] font-['IBM_Plex_Sans','Segoe_UI',Arial,sans-serif]">
   <ng-container *ngIf="!auth.isAuthenticated(); else workspace">
-    <section class="min-h-screen grid grid-cols-[1.4fr_1fr] gap-8 p-12 items-center">
-      <div class="login-brand">
-        <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">MeridianCare</p>
-        <h1 class="m-0 mb-4 text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl leading-none font-['Space_Grotesk','Segoe_UI',sans-serif]">Outpatient Operations</h1>
-        <p class="m-0 max-w-prose text-[#5f7469] text-base">On-prem clinical, pharmacy, inventory, and billing operations in one secure workspace.</p>
-      </div>
-      <form class="login-form bg-[#fbfcf8]/86 border border-[#d4ded6] p-6 grid gap-2 backdrop-blur-[4px]" (ngSubmit)="login()">
-        <h2 class="m-0 text-xl">Local Sign In</h2>
-        <label class="grid gap-1 text-xs uppercase tracking-wide text-[#5f7469]">
-          Username
-          <input class="border border-[#d4ded6] bg-white p-3 text-[#10231b]" [(ngModel)]="username" name="username" required />
-        </label>
-        <label class="grid gap-1 text-xs uppercase tracking-wide text-[#5f7469]">
-          Password
-          <input class="border border-[#d4ded6] bg-white p-3 text-[#10231b]" [(ngModel)]="password" name="password" type="password" required />
-        </label>
-        <div class="login-actions flex items-center justify-between gap-4">
-          <label class="remember flex items-center gap-2 text-sm text-[#5f7469] normal-case tracking-normal">
-            <input type="checkbox" [(ngModel)]="remember" name="remember" />
-            Remember on this workstation
-          </label>
-          <button type="submit" [disabled]="busy() || !username" class="bg-[#0a4f38] text-white px-4 py-2 border border-[#0a4f38] cursor-pointer font-semibold transition-all duration-300 hover:bg-[#0f6a4b] hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#cfd8d3] disabled:text-[#6b6b6b] disabled:border-[#e6e6e6]">Sign In</button>
+    <section class="min-h-screen flex items-center justify-center p-6">
+      <div class="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-12 items-center">
+        <div class="login-brand text-center lg:text-left">
+          <div class="mb-8">
+            <p class="m-0 text-sm tracking-widest uppercase text-[#5f7469] font-medium">MeridianCare</p>
+            <h1 class="m-0 mb-6 text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl leading-tight font-['Space_Grotesk','Segoe_UI',sans-serif] bg-gradient-to-r from-[#0a4f38] to-[#0f6a4b] bg-clip-text text-transparent">Outpatient Operations</h1>
+            <p class="m-0 max-w-lg text-[#5f7469] text-lg leading-relaxed mx-auto lg:mx-0">On-prem clinical, pharmacy, inventory, and billing operations in one secure workspace.</p>
+          </div>
+          <div class="hidden lg:block">
+            <div class="grid grid-cols-2 gap-4 text-center">
+              <div class="p-4 bg-white/50 backdrop-blur-sm rounded-lg border border-[#d4ded6]/50">
+                <div class="text-2xl mb-2">🏥</div>
+                <p class="text-sm font-medium text-[#10231b]">Clinical Operations</p>
+              </div>
+              <div class="p-4 bg-white/50 backdrop-blur-sm rounded-lg border border-[#d4ded6]/50">
+                <div class="text-2xl mb-2">💊</div>
+                <p class="text-sm font-medium text-[#10231b]">Pharmacy Management</p>
+              </div>
+              <div class="p-4 bg-white/50 backdrop-blur-sm rounded-lg border border-[#d4ded6]/50">
+                <div class="text-2xl mb-2">📦</div>
+                <p class="text-sm font-medium text-[#10231b]">Inventory Control</p>
+              </div>
+              <div class="p-4 bg-white/50 backdrop-blur-sm rounded-lg border border-[#d4ded6]/50">
+                <div class="text-2xl mb-2">💰</div>
+                <p class="text-sm font-medium text-[#10231b]">Billing & Finance</p>
+              </div>
+            </div>
+          </div>
         </div>
-        <p class="status m-0 min-h-5 text-[#aa2e2e] text-sm">{{ message() }}</p>
-      </form>
+        <form class="login-form bg-white/90 backdrop-blur-md border border-[#d4ded6]/60 p-8 rounded-2xl shadow-xl" (ngSubmit)="login()">
+          <div class="text-center mb-8">
+            <h2 class="m-0 text-2xl font-bold text-[#10231b] mb-2">Welcome Back</h2>
+            <p class="m-0 text-[#5f7469]">Sign in to your secure workspace</p>
+          </div>
+          <div class="space-y-6">
+            <label class="block">
+              <span class="block text-sm font-medium text-[#5f7469] uppercase tracking-wide mb-2">Username</span>
+              <input class="w-full border border-[#d4ded6] bg-white p-4 rounded-lg text-[#10231b] focus:outline-none focus:ring-2 focus:ring-[#0a4f38]/20 focus:border-[#0a4f38] transition-all duration-200" [(ngModel)]="username" name="username" required />
+            </label>
+            <label class="block">
+              <span class="block text-sm font-medium text-[#5f7469] uppercase tracking-wide mb-2">Password</span>
+              <input class="w-full border border-[#d4ded6] bg-white p-4 rounded-lg text-[#10231b] focus:outline-none focus:ring-2 focus:ring-[#0a4f38]/20 focus:border-[#0a4f38] transition-all duration-200" [(ngModel)]="password" name="password" type="password" required />
+            </label>
+          </div>
+          <div class="flex items-center justify-between mt-6 mb-6">
+            <label class="flex items-center gap-3 text-sm text-[#5f7469] cursor-pointer">
+              <input type="checkbox" [(ngModel)]="remember" name="remember" class="w-4 h-4 text-[#0a4f38] bg-white border-[#d4ded6] rounded focus:ring-[#0a4f38]/20" />
+              Remember on this workstation
+            </label>
+          </div>
+          <button type="submit" [disabled]="busy() || !username" class="w-full bg-gradient-to-r from-[#0a4f38] to-[#0f6a4b] text-white py-4 px-6 rounded-lg font-semibold transition-all duration-300 hover:from-[#0f6a4b] hover:to-[#0a4f38] hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#cfd8d3] disabled:text-[#6b6b6b] disabled:border-[#e6e6e6] disabled:hover:transform-none">Sign In</button>
+          <p class="status m-0 min-h-6 text-[#aa2e2e] text-sm text-center mt-4 font-medium">{{ message() }}</p>
+        </form>
+      </div>
     </section>
   </ng-container>
 
   <ng-template #workspace>
-    <div class="workspace min-h-screen grid grid-cols-[280px_1fr]">
-      <aside class="rail p-4 border-r border-[#d4ded6] bg-[#f9fbf7] h-screen flex flex-col justify-between gap-4">
-        <div>
-
-        <div class="brand">
-          <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">MeridianCare</p>
-          <h2 class="m-1 mt-1 text-lg">Operations Desk</h2>
-        </div>
-
-        <nav class="nav grid gap-1">
-          <a routerLink="/home" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Home</a>
-          <a *ngIf="hasRole(['physician'])" routerLink="/encounters" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Encounters</a>
-          <a *ngIf="hasRole(['pharmacist'])" routerLink="/pharmacy" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Pharmacy Queue</a>
-          <a *ngIf="hasRole(['billing','admin'])" routerLink="/billing" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Billing & Invoices</a>
-          <a *ngIf="hasRole(['inventory','pharmacist','admin'])" routerLink="/inventory" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Inventory</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/users" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">User Management</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/credentialing" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Credentialing</a>
-          <a *ngIf="hasRole(['admin'])" routerLink="/admin-ops" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">Admin Ops</a>
-          <a *ngIf="hasRole(['physician','pharmacist','billing','inventory','admin','auditor'])" routerLink="/my-clinic" routerLinkActive="selected" class="text-left bg-transparent text-[#10231b] border border-transparent py-2 px-2.5 no-underline font-semibold hover:bg-[#e4f0e8] hover:border-[#bdd3c6]">My Clinic</a>
-        </nav>
-        </div>
-
-        <section class="profile flex items-center gap-3 pt-3 border-t border-[#d4ded6]" *ngIf="auth.currentUser() as user">
-          <div class="avatar w-10 h-10 bg-[#0a4f38] text-white flex items-center justify-center font-bold">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
-          <div>
-            <p class="name m-0 text-sm font-medium">{{ user?.username }}</p>
-            <p class="meta m-0 text-xs text-[#5f7469]">{{ user?.role }}</p>
+    <div class="workspace min-h-screen bg-gray-50">
+      <aside class="fixed left-0 top-0 z-40 h-screen w-72 bg-white border-r border-gray-200 shadow-sm flex flex-col justify-between transition-all duration-300">
+        <div class="p-6">
+          <div class="brand mb-8">
+            <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469] font-medium">MeridianCare</p>
+            <h2 class="m-0 mt-2 text-xl font-bold text-[#10231b]">Operations Desk</h2>
           </div>
-          <button class="signout bg-[#0f6a4b] text-white px-3 py-1 border border-[#0a4f38] cursor-pointer font-semibold transition-all duration-300 hover:bg-[#0a4f38] hover:-translate-y-0.5" (click)="logout()">Sign Out</button>
-        </section>
 
+          <nav class="nav space-y-1">
+            <a routerLink="/home" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">🏠</span>
+              <span>Home</span>
+            </a>
+            <a *ngIf="hasRole(['physician'])" routerLink="/encounters" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">👨‍⚕️</span>
+              <span>Encounters</span>
+            </a>
+            <a *ngIf="hasRole(['pharmacist'])" routerLink="/pharmacy" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">💊</span>
+              <span>Pharmacy Queue</span>
+            </a>
+            <a *ngIf="hasRole(['billing','admin'])" routerLink="/billing" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">💰</span>
+              <span>Billing & Invoices</span>
+            </a>
+            <a *ngIf="hasRole(['inventory','pharmacist','admin'])" routerLink="/inventory" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">📦</span>
+              <span>Inventory</span>
+            </a>
+            <a *ngIf="hasRole(['admin'])" routerLink="/users" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">👥</span>
+              <span>User Management</span>
+            </a>
+            <a *ngIf="hasRole(['admin'])" routerLink="/credentialing" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">📋</span>
+              <span>Credentialing</span>
+            </a>
+            <a *ngIf="hasRole(['admin'])" routerLink="/admin-ops" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">⚙️</span>
+              <span>Admin Ops</span>
+            </a>
+            <a *ngIf="hasRole(['physician','pharmacist','billing','inventory','admin','auditor'])" routerLink="/my-clinic" routerLinkActive="selected" class="group flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg text-gray-700 hover:bg-[#e4f0e8] hover:text-[#0a4f38] transition-all duration-200">
+              <span class="text-lg">🏥</span>
+              <span>My Clinic</span>
+            </a>
+          </nav>
+        </div>
+
+        <section class="profile p-6 border-t border-gray-200 bg-gray-50" *ngIf="auth.currentUser() as user">
+          <div class="flex items-center gap-4 mb-4">
+            <div class="avatar w-12 h-12 bg-gradient-to-br from-[#0a4f38] to-[#0f6a4b] text-white flex items-center justify-center font-bold text-lg rounded-full shadow-sm">{{ user?.username?.charAt(0)?.toUpperCase() }}</div>
+            <div class="flex-1 min-w-0">
+              <p class="name m-0 text-sm font-semibold text-[#10231b] truncate">{{ user?.username }}</p>
+              <p class="meta m-0 text-xs text-[#5f7469] capitalize">{{ user?.role }}</p>
+            </div>
+          </div>
+          <button class="w-full bg-red-50 text-red-700 px-4 py-2 rounded-lg font-medium transition-all duration-200 hover:bg-red-100 hover:text-red-800 border border-red-200" (click)="logout()">Sign Out</button>
+        </section>
       </aside>
 
-      <main class="canvas">
-        <header class="topbar p-4">
-          <div>
-            <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469]">Current role</p>
-            <h2 class="m-0 text-xl font-semibold">{{ auth.getRole() | titlecase }}</h2>
+      <main class="ml-72 min-h-screen">
+        <header class="bg-white border-b border-gray-200 shadow-sm px-8 py-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="m-0 text-xs tracking-widest uppercase text-[#5f7469] font-medium">Current role</p>
+              <h1 class="m-0 text-2xl font-bold text-[#10231b]">{{ auth.getRole() | titlecase }}</h1>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="text-right">
+                <p class="m-0 text-xs text-[#5f7469]">MeridianCare Operations</p>
+                <p class="m-0 text-sm font-medium text-[#10231b]">{{ auth.currentUser()?.username }}</p>
+              </div>
+              <div class="w-10 h-10 bg-gradient-to-br from-[#0a4f38] to-[#0f6a4b] text-white flex items-center justify-center font-bold rounded-full shadow-sm">
+                {{ auth.currentUser()?.username?.charAt(0)?.toUpperCase() }}
+              </div>
+            </div>
           </div>
         </header>
-        <section class="surface p-4">
+        <section class="p-8 bg-gray-50 min-h-[calc(100vh-88px)]">
           <router-outlet></router-outlet>
         </section>
       </main>

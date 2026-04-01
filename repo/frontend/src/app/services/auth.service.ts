@@ -90,4 +90,26 @@ export class AuthService {
     const hasRole = !!this.getRole();
     return hasToken && hasRole;
   }
+
+  user() {
+    return this.currentUser();
+  }
+
+  can(permission: string): boolean {
+    const role = this.getRole();
+    if (!role) return false;
+
+    const rolePermissions: Record<string, string[]> = {
+      physician: ['encounter:write','encounter:sign','prescription:write','prescription:override','audit:self','patient:read','patient:write'],
+      pharmacist: ['prescription:review','prescription:approve','prescription:dispense','prescription:void','inventory:write'],
+      billing: ['billing:write','invoice:payment','patient:read'],
+      inventory: ['inventory:write','inventory:count','product:configure'],
+      admin: ['*','admin:unlock','patient:read','patient:write','patient:delete'],
+      auditor: ['audit:read','audit:export','patient:read'],
+      guest: []
+    };
+
+    const perms = rolePermissions[role] || [];
+    return perms.includes('*') || perms.includes(permission);
+  }
 }

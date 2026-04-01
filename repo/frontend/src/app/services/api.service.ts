@@ -58,7 +58,7 @@ export class ApiService {
   createOrganization(payload: unknown) { return this.http.post(this.url('/api/organizations'), payload, { headers: this.authHeaders() }); }
   updateOrganization(id: string, payload: unknown) { return this.http.put(this.url(`/api/organizations/${id}`), payload, { headers: this.authHeaders() }); }
   deleteOrganization(id: string) { return this.http.delete(this.url(`/api/organizations/${id}`), { headers: this.authHeaders() }); }
-  getKpis() { return this.http.get(this.url('/api/observability/kpis')); }
+  getKpis() { return this.http.get(this.url('/api/observability/kpis'), { headers: this.authHeaders() }); }
   getOverview() { return this.http.get(this.url('/api/overview'), { headers: this.authHeaders() }); }
   searchIcd(q: string) { return this.http.get(this.url('/api/icd'), { params: { q }, headers: this.authHeaders() }); }
   getPharmacyQueue() { return this.http.get(this.url('/api/pharmacy/queue'), { headers: this.authHeaders() }); }

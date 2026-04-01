@@ -13,7 +13,7 @@ async function clinicsRoutes(fastify, opts) {
     reply.code(201); return clinic;
   });
 
-  fastify.get('/api/clinics', { preHandler: [opts.permit('credentialing:read')] }, async (request) => {
+  fastify.get('/api/clinics', { preHandler: [fastify.auth] }, async (request) => {
     logger.info(['handler','clinics:get'], `clinic info requested by ${request.user && request.user.username}`);
     const clinic = await getClinic();
     return clinic || {};

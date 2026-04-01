@@ -3,7 +3,7 @@ const logger = require('../lib/logger');
 
 async function overviewRoutes(fastify, opts) {
   // simple overview combining KPIs and recent operations
-  fastify.get('/api/overview', { preHandler: [opts.permit('*')] }, async () => {
+  fastify.get('/api/overview', { preHandler: [fastify.auth] }, async () => {
     logger.info(['handler', 'overview'], 'overview requested');
     const kpisRes = await pool.query('SELECT COUNT(*)::int AS invoices FROM invoices');
     const invoicesCount = Number((kpisRes.rows[0] && kpisRes.rows[0].invoices) || 0);

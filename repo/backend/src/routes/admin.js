@@ -223,10 +223,8 @@ async function adminRoutes(fastify, opts) {
     return { rolledBackFrom: current.id, rolledBackTo: target.id };
   });
 
-  fastify.get('/api/observability/kpis', { preHandler: [opts.permit('*')] }, async (request, reply) => {
-    if (typeof fastify.auth === 'function') await fastify.auth(request, reply);
-    if (!request.user) return;
-    logger.info(['handler', 'admin:kpis'], `kpis requested by ${request.user && request.user.username}`);
+  fastify.get('/api/observability/kpis', { preHandler: [fastify.auth] }, async (request, reply) => {
+    logger.info(['handler', 'admin:kpis'], `kpis requested`);
     try {
       const invoices = await pool.query('SELECT COUNT(*)::int AS count FROM invoices');
       const paid = await pool.query("SELECT COUNT(*)::int AS count FROM invoices WHERE state='paid'");

@@ -152,6 +152,30 @@ async function buildApp() {
     }
   };
 
+  const permitPublic = (permission) => async (request, reply) => {
+    // For public endpoints, try to auth but don't fail if no user
+    try {
+      await app.auth(request, reply);
+    } catch (e) {
+      // Auth failed, but that's ok for public endpoints
+    }
+    // If we have a user, check permissions
+    if (request.user && !can(request.user.role, permission)) {
+      try {
+        request.log.warn(["auth", "forbidden"], `user lacks permission`, {
+          userId: request.user && request.user.id,
+          username: request.user && request.user.username,
+          role: request.user && request.user.role,
+          permission,
+          ip: request.ip,
+          path: request.routerPath || request.raw.url,
+          method: request.method,
+        });
+      } catch (e) {}
+      return reply.code(403).send({ code: 403, msg: "Forbidden" });
+    }
+  };
+
   app.get("/health", async () => ({ ok: true }));
 
   // register clinics routes separately (clean architecture)
@@ -179,7 +203,7 @@ async function buildApp() {
   await app.register(inventoryRoutes, { permit });
   await app.register(usersRoutes, { permit });
   await app.register(credentialingRoutes, { permit });
-  await app.register(adminRoutes, { permit });
+  await app.register(adminRoutes, { permit, permitPublic });
   await app.register(syncAuditRoutes, { permit });
   await app.register(overviewRoutes, { permit });
 
