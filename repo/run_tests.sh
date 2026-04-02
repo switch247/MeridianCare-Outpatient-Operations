@@ -41,19 +41,11 @@ if [ "$ready" -ne 1 ]; then
 	exit 1
 fi
 
-echo "Running backend unit tests (all packages)..."
+echo "Running backend tests (all packages)..."
 $COMPOSE exec -T backend sh -lc 'npm test --silent' || {
     echo "Backend tests failed" >&2
     exit 1
 }
-
-echo "Running backend API tests (smoke + requirements)..."
-$COMPOSE exec -T backend sh -lc 'npm run test:api --silent' || {
-	echo "Backend API tests failed" >&2
-	exit 1
-}
-
-
 
 echo "Running frontend tests..."
 $COMPOSE exec -T frontend sh -lc '

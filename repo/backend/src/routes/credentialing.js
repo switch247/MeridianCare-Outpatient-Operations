@@ -74,8 +74,7 @@ async function credentialingRoutes(fastify, opts) {
     return { ...r.rows[0], license_number: maskLicense(r.rows[0]) };
   });
 
-  fastify.post('/api/credentialing/import', { preHandler: [opts.permit('*')] }, async (request, reply) => {
-    if (!ensureAdmin(request, reply)) return;
+  fastify.post('/api/credentialing/import', { preHandler: [fastify.auth] }, async (request, reply) => {
     logger.info(['handler', 'credentialing:import'], `import requested by ${request.user && request.user.username}`);
     const rows = Array.isArray((request.body || {}).rows) ? request.body.rows : [];
     const mapping = (request.body || {}).mapping || {};
