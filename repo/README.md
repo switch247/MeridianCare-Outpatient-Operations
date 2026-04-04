@@ -16,19 +16,26 @@ docker compose up --build
 - Frontend: http://localhost:14200
 - Backend health: http://localhost:13000/health
 
-## Local Backend Startup (Non-Docker)
-1. Create env from template:
-```bash
-cp .env.template .env
-```
-2. Start PostgreSQL locally and create database `meridiancare-clinic`.
-3. Start backend:
+## Local Startup (Non-Docker)
+1. Ensure PostgreSQL is running locally and `DATABASE_URL` points to a valid `meridiancare-clinic` database.
+2. Install dependencies:
 ```bash
 cd backend
 npm install
+cd ../frontend
+npm install
+```
+3. Start backend (Terminal 1):
+```bash
+cd backend
 npm run start
 ```
-4. Health check:
+4. Start frontend (Terminal 2):
+```bash
+cd frontend
+npm run start
+```
+5. Health check:
 ```bash
 curl http://localhost:13000/health
 ```
@@ -47,6 +54,19 @@ docker compose exec -T backend sh -lc 'API_BASE_URL=http://localhost:3000 npm ru
 docker compose exec -T frontend sh -lc 'npm test --silent'
 docker compose exec -T frontend sh -lc 'API_BASE_URL=http://backend:3000 npm run test:e2e:all --silent'
 ```
+
+Local equivalents (run from repo root):
+
+Note: Local backend checks require a valid PostgreSQL connection string in DATABASE_URL (for example in backend/.env). If no PostgreSQL database is available locally, use the Docker commands above.
+
+```bash
+cd backend && npm test --silent
+cd backend && API_BASE_URL=http://localhost:13000 npm run test:api --silent
+cd frontend && npm test --silent
+cd frontend && API_BASE_URL=http://localhost:13000 npm run test:e2e --silent
+```
+
+
 
 ## Security and Data Isolation
 - Local username/password auth only; minimum password length 12; bcrypt hashing.
