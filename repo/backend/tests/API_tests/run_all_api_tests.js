@@ -17,6 +17,7 @@ async function main() {
   const { runRequirementApi } = require('./requirement_api_test');
   const { runObjectIsolation } = require('./object_isolation.test');
   const { runAdminAccess } = require('./admin_access.test');
+  const { runAdversaryHardGate } = require('./adversary_hard_gate.test');
 
   const { app, api } = await createApiContext();
   const sessions = await bootstrapAuth(api);
@@ -27,6 +28,7 @@ async function main() {
     await runNamed('requirements', runRequirementApi, api, sessions);
     await runNamed('object-isolation', runObjectIsolation, api, sessions);
     await runNamed('admin-access-negative', runAdminAccess, api, sessions);
+    await runNamed('adversary-hard-gate', runAdversaryHardGate, api, sessions);
     console.log('[api] all API acceptance tests passed');
   } finally {
     await app.close();

@@ -57,10 +57,27 @@ async function resolveShipping(shipping) {
 }
 
 async function billingRoutes(fastify, opts) {
+  const isClinicalRole = (role) => {
+    const normalized = String(role || '').toUpperCase();
+    return normalized === 'PHYSICIAN' || normalized === 'NURSE';
+  };
+  const maskPatientName = (name) => {
+    const value = String(name || '').trim();
+    if (!value) return value;
+    const parts = value.split(/\s+/).filter(Boolean);
+    return parts.map((part) => `${part[0]}${'*'.repeat(Math.max(2, part.length - 1))}`).join(' ');
+  };
+  const scrubInvoiceRow = (row, role) => {
+    if (!row) return row;
+    if (isClinicalRole(role)) return row;
+    return { ...row, patient_name: row.patient_name ? maskPatientName(row.patient_name) : row.patient_name };
+  };
+
   function scopeWhere(request, alias = 'i') {
     const isAdmin = request.user && request.user.role === 'admin';
     const clinicId = request.user && request.user.clinic_id;
-    if (isAdmin || !clinicId) return { clause: '', params: [] };
+    if (isAdmin) return { clause: '', params: [], forbidden: false };
+    if (!clinicId) return { clause: '', params: [], forbidden: true };
     return { clause: ` AND ${alias}.clinic_id=$2`, params: [clinicId] };
   }
   fastify.post('/api/billing/price', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
@@ -126,8 +143,9 @@ async function billingRoutes(fastify, opts) {
     }
   });
 
-  fastify.get('/api/invoices', { preHandler: [opts.permit('billing:write')] }, async (request) => {
+  fastify.get('/api/invoices', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
     const scope = scopeWhere(request);
+    if (scope.forbidden) return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
     const result = await pool.query(
       `SELECT i.id,i.patient_id,i.lines,i.subtotal,i.total,i.state,i.version,i.created_at,i.payment_ref,i.payment_metadata,i.shipping_details,p.name AS patient_name
        FROM invoices i
@@ -136,11 +154,12 @@ async function billingRoutes(fastify, opts) {
        ORDER BY i.id DESC`,
       scope.params,
     );
-    return result.rows;
+    return result.rows.map((row) => scrubInvoiceRow(row, request.user && request.user.role));
   });
 
   fastify.get('/api/invoices/:id', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
     const scope = scopeWhere(request);
+    if (scope.forbidden) return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
     const result = await pool.query(
       `SELECT i.*,p.name AS patient_name
        FROM invoices i
@@ -149,12 +168,13 @@ async function billingRoutes(fastify, opts) {
       [request.params.id, ...scope.params],
     );
     if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'Invoice not found' });
-    return result.rows[0];
+    return scrubInvoiceRow(result.rows[0], request.user && request.user.role);
   });
 
   fastify.post('/api/invoices/:id/payment', { preHandler: [opts.permit('invoice:payment')] }, async (request, reply) => {
     logger.info(['handler', 'billing:payment'], `payment for ${request.params.id} by ${request.user && request.user.username}`);
     const scope = scopeWhere(request);
+    if (scope.forbidden) return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
     const invoiceRes = await pool.query(
       `SELECT * FROM invoices i WHERE id=$1${scope.clause}`,
       [request.params.id, ...scope.params],
@@ -178,6 +198,7 @@ async function billingRoutes(fastify, opts) {
 
   fastify.post('/api/invoices/:id/cancel', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
     const scope = scopeWhere(request);
+    if (scope.forbidden) return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
     const invoiceRes = await pool.query(
       `SELECT * FROM invoices i WHERE id=$1${scope.clause}`,
       [request.params.id, ...scope.params],

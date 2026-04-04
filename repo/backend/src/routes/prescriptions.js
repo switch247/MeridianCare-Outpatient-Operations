@@ -20,6 +20,16 @@ async function prescriptionsRoutes(fastify, opts) {
     logger.info(['handler','prescriptions:create'], `create prescription by ${request.user && request.user.username}`);
     if (!requireClinicContext(request, reply)) return;
     const b = request.body || {};
+    const encounterRes = await pool.query(
+      'SELECT id,patient_id,clinic_id FROM encounters WHERE id=$1 AND clinic_id=$2',
+      [b.encounterId, request.user.clinic_id],
+    );
+    const encounter = encounterRes.rows[0];
+    if (!encounter) return reply.code(404).send({ code: 404, msg: 'Encounter not found' });
+    if (String(encounter.patient_id) !== String(b.patientId)) {
+      return reply.code(400).send({ code: 400, msg: 'Encounter does not belong to patient' });
+    }
+
     const p = await pool.query('SELECT * FROM patients WHERE id=$1 AND clinic_id=$2', [b.patientId, request.user.clinic_id]);
     const patient = p.rows[0];
     if (!patient) return reply.code(404).send({ code: 404, msg: 'Patient not found' });

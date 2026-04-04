@@ -2,8 +2,18 @@ const { pool } = require('../db');
 const logger = require('../lib/logger');
 
 async function overviewRoutes(fastify, opts) {
-  // simple overview combining KPIs and recent operations
-  fastify.get('/api/overview', { preHandler: [opts.permit('overview:read')] }, async () => {
+  const isClinicalRole = (role) => {
+    const normalized = String(role || '').toUpperCase();
+    return normalized === 'PHYSICIAN' || normalized === 'NURSE';
+  };
+  const maskPatientName = (name) => {
+    const value = String(name || '').trim();
+    if (!value) return value;
+    const parts = value.split(/\s+/).filter(Boolean);
+    return parts.map((part) => `${part[0]}${'*'.repeat(Math.max(2, part.length - 1))}`).join(' ');
+  };
+
+  fastify.get('/api/overview', { preHandler: [opts.permit('overview:read')] }, async (request) => {
     logger.info(['handler', 'overview'], 'overview requested');
     const kpisRes = await pool.query('SELECT COUNT(*)::int AS invoices FROM invoices');
     const invoicesCount = Number((kpisRes.rows[0] && kpisRes.rows[0].invoices) || 0);
@@ -25,8 +35,12 @@ async function overviewRoutes(fastify, opts) {
     ).rows;
 
     const recent = [];
+    const shouldMaskInvoicePatients = !isClinicalRole(request.user && request.user.role);
     recentAudits.forEach((r) => recent.push({ type: 'audit', id: r.id, when: r.created_at, summary: r.action }));
-    recentInvoices.forEach((r) => recent.push({ type: 'invoice', id: r.id, when: r.created_at, summary: `${r.patient_name || '-'} $${r.total}` }));
+    recentInvoices.forEach((r) => {
+      const patientName = shouldMaskInvoicePatients ? maskPatientName(r.patient_name) : r.patient_name;
+      recent.push({ type: 'invoice', id: r.id, when: r.created_at, summary: `${patientName || '-'} $${r.total}` });
+    });
     recentInventory.forEach((r) => recent.push({ type: 'inventory', id: r.id, when: new Date().toISOString(), summary: `${r.sku || ''} ${r.name || ''}` }));
 
     recent.sort((a, b) => new Date(b.when) - new Date(a.when));

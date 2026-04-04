@@ -3,33 +3,39 @@ const { writeAudit } = require('../lib/audit');
 const logger = require('../lib/logger');
 
 async function encountersRoutes(fastify, opts) {
-  fastify.get('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request) => {
+  fastify.get('/api/encounters', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
     const isAdmin = request.user && request.user.role === 'admin';
-    const hasClinic = request.user && request.user.clinic_id;
+    const clinicId = request.user && request.user.clinic_id;
+    if (!isAdmin && !clinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
     const patientId = (request.query || {}).patientId;
     if (patientId) {
-      const sql = isAdmin || !hasClinic
+      const sql = isAdmin
         ? 'SELECT * FROM encounters WHERE patient_id=$1 ORDER BY updated_at DESC LIMIT 100'
         : 'SELECT * FROM encounters WHERE patient_id=$1 AND clinic_id=$2 ORDER BY updated_at DESC LIMIT 100';
-      const byPatient = await pool.query(sql, isAdmin || !hasClinic ? [patientId] : [patientId, request.user.clinic_id]);
+      const byPatient = await pool.query(sql, isAdmin ? [patientId] : [patientId, clinicId]);
       return byPatient.rows;
     }
     const allRows = await pool.query(
-      isAdmin || !hasClinic
+      isAdmin
         ? 'SELECT * FROM encounters ORDER BY updated_at DESC LIMIT 100'
         : 'SELECT * FROM encounters WHERE clinic_id=$1 ORDER BY updated_at DESC LIMIT 100',
-      isAdmin || !hasClinic ? [] : [request.user.clinic_id],
+      isAdmin ? [] : [clinicId],
     );
     return allRows.rows;
   });
 
   fastify.get('/api/encounters/:id', { preHandler: [opts.permit('encounter:write')] }, async (request, reply) => {
     const isAdmin = request.user && request.user.role === 'admin';
-    const hasClinic = request.user && request.user.clinic_id;
-    const sql = isAdmin || !hasClinic
+    const clinicId = request.user && request.user.clinic_id;
+    if (!isAdmin && !clinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
+    const sql = isAdmin
       ? 'SELECT * FROM encounters WHERE id=$1'
       : 'SELECT * FROM encounters WHERE id=$1 AND clinic_id=$2';
-    const result = await pool.query(sql, isAdmin || !hasClinic ? [request.params.id] : [request.params.id, request.user.clinic_id]);
+    const result = await pool.query(sql, isAdmin ? [request.params.id] : [request.params.id, clinicId]);
     if (!result.rows[0]) return reply.code(404).send({ code: 404, msg: 'Encounter not found' });
     return result.rows[0];
   });

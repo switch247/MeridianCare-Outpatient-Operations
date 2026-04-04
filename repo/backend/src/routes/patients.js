@@ -48,26 +48,32 @@ async function patientsRoutes(fastify, opts) {
   });
 
   // list patients (for roles with read access)
-  fastify.get('/api/patients', { preHandler: [opts.permit('patient:read')] }, async (request) => {
+  fastify.get('/api/patients', { preHandler: [opts.permit('patient:read')] }, async (request, reply) => {
     logger.info(['handler','patients:list'],'list patients');
-    const isAdmin = request.user && request.user.role === 'admin';
-    const hasClinic = request.user && request.user.clinic_id;
-    const sql = isAdmin || !hasClinic
+    const admin = isAdmin(request);
+    const clinicId = request.user && request.user.clinic_id;
+    if (!admin && !clinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
+    const sql = admin
       ? 'SELECT * FROM patients ORDER BY name LIMIT 200'
       : 'SELECT * FROM patients WHERE clinic_id=$1 ORDER BY name LIMIT 200';
-    const params = isAdmin || !hasClinic ? [] : [request.user.clinic_id];
+    const params = admin ? [] : [clinicId];
     const r = await pool.query(sql, params);
     return r.rows.map((row) => scrubPatient(row, request.user && request.user.role));
   });
 
   // get patient
   fastify.get('/api/patients/:id', { preHandler: [opts.permit('patient:read')] }, async (request, reply) => {
-    const isAdmin = request.user && request.user.role === 'admin';
-    const hasClinic = request.user && request.user.clinic_id;
-    const sql = isAdmin || !hasClinic
+    const admin = isAdmin(request);
+    const clinicId = request.user && request.user.clinic_id;
+    if (!admin && !clinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
+    const sql = admin
       ? 'SELECT * FROM patients WHERE id=$1'
       : 'SELECT * FROM patients WHERE id=$1 AND clinic_id=$2';
-    const params = isAdmin || !hasClinic ? [request.params.id] : [request.params.id, request.user.clinic_id];
+    const params = admin ? [request.params.id] : [request.params.id, clinicId];
     const r = await pool.query(sql, params);
     if (!r.rows.length) return reply.code(404).send({ code: 404, msg: 'Patient not found' });
     return scrubPatient(r.rows[0], request.user && request.user.role);

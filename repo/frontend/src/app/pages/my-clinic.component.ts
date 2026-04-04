@@ -21,16 +21,16 @@ import { ApiService } from '../services/api.service';
         <p class="text-sm text-gray-600">{{ clinic?.type }}</p>
         <div class="mt-3">
           <p><strong>Address</strong></p>
-          <div class="p-2 bg-gray-50 rounded">{{ clinic?.address || '—' }}</div>
+          <div class="p-2 bg-gray-50 rounded">{{ clinic?.address || '-' }}</div>
         </div>
         <div class="mt-3">
             <p><strong>Contact</strong></p>
             <div class="p-2 bg-gray-50 rounded">
               <div *ngIf="clinic?.contactInfo">
-                <div><strong>Email:</strong> {{ clinic.contactInfo.email || '—' }}</div>
-                <div><strong>Phone:</strong> {{ clinic.contactInfo.phone || '—' }}</div>
+                <div><strong>Email:</strong> {{ clinic.contactInfo.email || '-' }}</div>
+                <div><strong>Phone:</strong> {{ clinic.contactInfo.phone || '-' }}</div>
               </div>
-              <div *ngIf="!clinic?.contactInfo">—</div>
+              <div *ngIf="!clinic?.contactInfo">-</div>
             </div>
           </div>
       </div>

@@ -1,12 +1,112 @@
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 const { pool } = require('../db');
-const { encrypt } = require('../utils/crypto');
+const { encryptBuffer } = require('../utils/crypto');
 const { env } = require('../config');
 const { computeBackoffSeconds, nextStage } = require('../services/crawler');
 const { createUser } = require('../services/users');
 const { forecastFromModel, topMedicationRecommendations, similarPrescriptionSuggestions, dateSeriesFromRows } = require('../services/forecasting');
 const logger = require('../lib/logger');
+
+async function runPgDump() {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      'pg_dump',
+      ['--dbname', env.DATABASE_URL, '--no-owner', '--no-privileges', '--format=plain'],
+      { stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    child.stdout.on('data', (chunk) => stdoutChunks.push(Buffer.from(chunk)));
+    child.stderr.on('data', (chunk) => stderrChunks.push(Buffer.from(chunk)));
+    child.on('error', (err) => reject(err));
+    child.on('close', (code) => {
+      if (code !== 0) {
+        const stderr = Buffer.concat(stderrChunks).toString('utf8');
+        reject(new Error(`pg_dump failed with code ${code}: ${stderr}`));
+        return;
+      }
+      resolve(Buffer.concat(stdoutChunks));
+    });
+  });
+}
+
+function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+function sqlLiteral(value) {
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'NULL';
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'object') {
+    const json = JSON.stringify(value);
+    return `'${json.replace(/'/g, "''")}'`;
+  }
+  return `'${String(value).replace(/'/g, "''")}'`;
+}
+
+async function runDriverLevelDump() {
+  const chunks = [];
+  chunks.push('-- PostgreSQL database dump\n');
+  chunks.push('-- Driver-level export fallback\n\n');
+  chunks.push('BEGIN;\n\n');
+
+  const tables = (
+    await pool.query(
+      `SELECT table_name
+       FROM information_schema.tables
+       WHERE table_schema='public' AND table_type='BASE TABLE'
+       ORDER BY table_name ASC`,
+    )
+  ).rows;
+
+  for (const t of tables) {
+    const tableName = t.table_name;
+    const cols = (
+      await pool.query(
+        `SELECT
+           a.attname AS column_name,
+           pg_catalog.format_type(a.atttypid, a.atttypmod) AS data_type,
+           a.attnotnull AS not_null,
+           pg_get_expr(ad.adbin, ad.adrelid) AS default_value
+         FROM pg_attribute a
+         JOIN pg_class c ON c.oid=a.attrelid
+         JOIN pg_namespace n ON n.oid=c.relnamespace
+         LEFT JOIN pg_attrdef ad ON a.attrelid=ad.adrelid AND a.attnum=ad.adnum
+         WHERE n.nspname='public' AND c.relname=$1 AND a.attnum>0 AND NOT a.attisdropped
+         ORDER BY a.attnum`,
+        [tableName],
+      )
+    ).rows;
+
+    if (!cols.length) continue;
+
+    const columnDefs = cols.map((c) => {
+      const base = `${quoteIdent(c.column_name)} ${c.data_type}`;
+      const withDefault = c.default_value ? `${base} DEFAULT ${c.default_value}` : base;
+      return c.not_null ? `${withDefault} NOT NULL` : withDefault;
+    });
+
+    chunks.push(`DROP TABLE IF EXISTS ${quoteIdent(tableName)} CASCADE;\n`);
+    chunks.push(`CREATE TABLE ${quoteIdent(tableName)} (\n  ${columnDefs.join(',\n  ')}\n);\n\n`);
+
+    const rows = (await pool.query(`SELECT * FROM ${quoteIdent(tableName)}`)).rows;
+    if (rows.length) {
+      const columnNames = cols.map((c) => quoteIdent(c.column_name)).join(', ');
+      for (const row of rows) {
+        const values = cols.map((c) => sqlLiteral(row[c.column_name])).join(', ');
+        chunks.push(`INSERT INTO ${quoteIdent(tableName)} (${columnNames}) VALUES (${values});\n`);
+      }
+      chunks.push('\n');
+    }
+  }
+
+  chunks.push('COMMIT;\n');
+  return Buffer.from(chunks.join(''), 'utf8');
+}
 
 async function adminRoutes(fastify, opts) {
   const isAdmin = (request) => !!(request.user && request.user.role === 'admin');
@@ -311,27 +411,39 @@ async function adminRoutes(fastify, opts) {
     return { items: rows.rows, total: Number(countRes.rows[0].count), page, pageSize };
   });
 
-  fastify.post('/api/admin/backups/nightly', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+  const runNightlyBackup = async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:backups:nightly'], 'scheduled nightly backup');
-    const backupDir = process.env.BACKUP_DIR || '/app/backups';
+    const backupDir = process.env.BACKUP_DIR || path.resolve(process.cwd(), 'backups');
     fs.mkdirSync(backupDir, { recursive: true });
-    const payload = {
-      generatedAt: new Date().toISOString(),
-      note: 'Encrypted local backup metadata; payment data is manual only (no external gateway)',
-    };
-    const encryptedPayload = encrypt(JSON.stringify(payload), env.PHI_KEY);
+
+    let rawDump;
+    try {
+      rawDump = await runPgDump();
+    } catch (err) {
+      logger.warn(['handler', 'admin:backups:nightly', 'fallback'], `pg_dump unavailable, using driver export fallback: ${err.message}`);
+      rawDump = await runDriverLevelDump();
+    }
+    if (!rawDump || !rawDump.length) {
+      return reply.code(500).send({ code: 500, msg: 'Database dump failed: empty dump output' });
+    }
+
+    const encryptedPayload = encryptBuffer(rawDump, env.PHI_KEY);
     const fileName = `backup_${Date.now()}.enc`;
     const filePath = path.join(backupDir, fileName);
     fs.writeFileSync(filePath, encryptedPayload, 'utf8');
+
     await pool.query(
       'INSERT INTO backup_runs(run_date,status,encrypted,retention_days,artifact_path,notes) VALUES(CURRENT_DATE,$1,$2,$3,$4,$5)',
-      ['completed', true, 30, filePath, 'Nightly encrypted local backup created'],
+      ['completed', true, 30, filePath, 'Nightly encrypted PostgreSQL dump created'],
     );
     await pool.query("DELETE FROM backup_runs WHERE created_at < NOW() - INTERVAL '30 days'");
     reply.code(201);
-    return { encrypted: true, retentionDays: 30, status: 'completed', artifactPath: filePath };
-  });
+    return { encrypted: true, retentionDays: 30, status: 'completed', artifactPath: filePath, format: 'pg_dump+aes256' };
+  };
+
+  fastify.post('/api/admin/backups/nightly', { preHandler: [opts.permit('admin')] }, runNightlyBackup);
+  fastify.post('/api/admin/backup', { preHandler: [opts.permit('admin')] }, runNightlyBackup);
 
   fastify.get('/api/admin/backups/nightly', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return [];
