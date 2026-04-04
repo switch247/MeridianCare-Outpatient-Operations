@@ -23,10 +23,12 @@ services:
     build: ./backend
     environment:
       DATABASE_URL: postgres://postgres:postgres@t2-db:5432/meridiancare-clinic
-      JWT_SECRET: meridian-local-jwt-secret
-      PHI_KEY: meridian-local-phi-key
+      JWT_SECRET: ${JWT_SECRET:-meridian-local-jwt-secret}
+      PHI_KEY: ${PHI_KEY:-meridian-local-phi-key}
       PORT: 3000
-      SEED_PASSWORD: Password!123
+      PLAYWRIGHT_CHROMIUM_PATH : /usr/bin/chromium-browser
+      API_BASE_URL: http://localhost:3000
+      SEED_PASSWORD: ${SEED_PASSWORD:-Password!123}
     ports:
       - "13000:3000"
     volumes:

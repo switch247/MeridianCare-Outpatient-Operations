@@ -6,7 +6,7 @@ export const RoleGuard: (allowed: string[]) => CanActivateFn = (allowed: string[
   return async () => {
     const auth = inject(AuthService);
     const router = inject(Router);
-    const valid = await auth.validateSession();
+    const valid = await auth.validateSession({ logoutOnUnauthorized: false, allowCachedOnError: true });
     if (!valid || !auth.isAuthenticated()) return router.parseUrl('/');
     const role = auth.getRole();
     if (!role) return router.parseUrl('/');

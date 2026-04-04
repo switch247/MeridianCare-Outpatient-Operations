@@ -9,7 +9,15 @@ const { forecastFromModel, topMedicationRecommendations, similarPrescriptionSugg
 const logger = require('../lib/logger');
 
 async function adminRoutes(fastify, opts) {
-  async function resolveNodeAssignment(preferredNodeId) {
+  const isAdmin = (request) => !!(request.user && request.user.role === 'admin');
+  const ensureAdmin = (request, reply) => {
+    if (!isAdmin(request)) {
+      reply.code(403).send({ code: 403, msg: 'Admin role required' });
+      return false;
+    }
+    return true;
+  };
+  async function resolveNodeAssignment(preferredNodeId, desiredNodes = 1) {
     if (preferredNodeId) return preferredNodeId;
     const workers = (await pool.query(
       `SELECT COALESCE(node_id,'node-1') AS node_id, COUNT(*)::int AS active_count
@@ -18,19 +26,26 @@ async function adminRoutes(fastify, opts) {
        GROUP BY COALESCE(node_id,'node-1')
        ORDER BY active_count ASC, node_id ASC`,
     )).rows;
-    if (!workers.length) return 'node-1';
-    return workers[0].node_id;
+    const capacity = Math.max(1, Number(desiredNodes || 1));
+    const counts = {};
+    for (let i = 1; i <= capacity; i += 1) counts[`node-${i}`] = 0;
+    for (const w of workers) {
+      const key = String(w.node_id || '');
+      if (counts[key] !== undefined) counts[key] = Number(w.active_count || 0);
+    }
+    return Object.keys(counts).sort((a, b) => counts[a] - counts[b] || a.localeCompare(b))[0];
   }
 
   async function autoscaleSignal() {
     const queueDepth = Number((await pool.query("SELECT COUNT(*)::int AS count FROM crawler_jobs WHERE state IN ('queued','retry_wait')")).rows[0].count);
     const nodeCount = Number((await pool.query('SELECT COUNT(DISTINCT COALESCE(node_id,\'node-1\'))::int AS count FROM crawler_jobs')).rows[0].count || 1);
     const desiredNodes = Math.max(1, Math.min(8, Math.ceil(queueDepth / 5)));
-    return { queueDepth, nodeCount, desiredNodes, scaleOutRecommended: desiredNodes > nodeCount };
+    const action = desiredNodes > nodeCount ? 'scale_out' : desiredNodes < nodeCount ? 'scale_in' : 'steady';
+    return { queueDepth, nodeCount, desiredNodes, action, applied: true };
   }
 
-  fastify.post('/api/admin/users', { preHandler: [opts.permit('*')] }, async (request, reply) => {
-    if (!request.user || request.user.role !== 'admin') return reply.code(403).send({ code: 403, msg: 'Admin role required' });
+  fastify.post('/api/admin/users', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const b = request.body || {};
     if (!b.username || !b.password || !b.role) return reply.code(400).send({ code: 400, msg: 'username, password, and role are required' });
     const user = await createUser({
@@ -46,15 +61,16 @@ async function adminRoutes(fastify, opts) {
     return user;
   });
 
-  fastify.post('/api/crawler/run', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/crawler/run', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:crawler:run'], `crawl requested by ${request.user && request.user.username}`);
     const body = request.body || {};
-    const assignedNodeId = await resolveNodeAssignment(body.nodeId || null);
+    const scaling = await autoscaleSignal();
+    const assignedNodeId = await resolveNodeAssignment(body.nodeId || null, scaling.desiredNodes);
     const result = await pool.query(
       'INSERT INTO crawler_jobs(source_name,priority,state,checkpoint,next_retry_at,node_id) VALUES($1,$2,$3,$4,NOW(),$5) RETURNING *',
       [body.sourceName || 'manual-ingest', Number(body.priority || 5), 'queued', JSON.stringify({ stage: 'collect', processed: 0 }), assignedNodeId],
     );
-    const scaling = await autoscaleSignal();
     reply.code(201);
     return {
       ...result.rows[0],
@@ -62,12 +78,13 @@ async function adminRoutes(fastify, opts) {
       retry: { strategy: 'exponential_backoff', startSeconds: 30, maxSeconds: 900 },
       checkpoint: 'incremental',
       loadBalancing: true,
-      autoScale: scaling,
+      autoScale: { ...scaling, assignedNodeId },
       idempotent: true,
     };
   });
 
-  fastify.get('/api/crawler/queue', { preHandler: [opts.permit('*')] }, async (request) => {
+  fastify.get('/api/crawler/queue', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const page = Math.max(1, Number((request.query || {}).page || 1));
     const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
     const q = String((request.query || {}).q || '').trim();
@@ -84,7 +101,8 @@ async function adminRoutes(fastify, opts) {
     return { items: rowsRes.rows, total: Number(countRes.rows[0].count), page, pageSize };
   });
 
-  fastify.post('/api/crawler/process-next', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/crawler/process-next', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const nodeId = (request.body || {}).nodeId || 'node-1';
     const client = await pool.connect();
     try {
@@ -120,7 +138,8 @@ async function adminRoutes(fastify, opts) {
     }
   });
 
-  fastify.post('/api/crawler/:id/retry', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/crawler/:id/retry', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const jobRes = await pool.query('SELECT * FROM crawler_jobs WHERE id=$1', [request.params.id]);
     const job = jobRes.rows[0];
     if (!job) return reply.code(404).send({ code: 404, msg: 'Crawler job not found' });
@@ -135,7 +154,8 @@ async function adminRoutes(fastify, opts) {
     return next.rows[0];
   });
 
-  fastify.post('/api/models/register', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/models/register', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:model:register'], `register model by ${request.user && request.user.username}`);
     const body = request.body || {};
     const baselineScore = Number(body.baselineScore || 0);
@@ -153,7 +173,8 @@ async function adminRoutes(fastify, opts) {
     return { ...result.rows[0], baselinePass, baselineCompared: true, rollbackAvailable: true, driftMonitoring: true };
   });
 
-  fastify.get('/api/models/drift', { preHandler: [opts.permit('*')] }, async (request) => {
+  fastify.get('/api/models/drift', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const page = Math.max(1, Number((request.query || {}).page || 1));
     const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
     const q = String((request.query || {}).q || '').trim();
@@ -175,7 +196,7 @@ async function adminRoutes(fastify, opts) {
     };
   });
 
-  fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.get('/api/admin/forecasts', { preHandler: [opts.permit('overview:read')] }, async (request, reply) => {
     logger.info(['handler', 'admin:forecasts'], `forecasts requested by ${request.user && request.user.username}`);
     try {
       const encounterRows = (await pool.query('SELECT created_at FROM encounters ORDER BY created_at ASC')).rows;
@@ -194,7 +215,7 @@ async function adminRoutes(fastify, opts) {
     }
   });
 
-  fastify.get('/api/admin/recommendations', { preHandler: [opts.permit('*')] }, async () => {
+  fastify.get('/api/admin/recommendations', { preHandler: [opts.permit('overview:read')] }, async (request, reply) => {
     const rxRows = (await pool.query('SELECT id,drug_name,dose,route,quantity,updated_at FROM prescriptions ORDER BY updated_at DESC LIMIT 500')).rows;
     const deployedModel = (await pool.query('SELECT * FROM model_versions WHERE model_type=$1 AND is_deployed=true ORDER BY created_at DESC LIMIT 1', ['recommendations'])).rows[0];
     const top = topMedicationRecommendations(rxRows, 5);
@@ -207,7 +228,8 @@ async function adminRoutes(fastify, opts) {
     };
   });
 
-  fastify.post('/api/models/:id/rollback', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/models/:id/rollback', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:model:rollback'], `rollback model ${request.params.id} by ${request.user && request.user.username}`);
     const currentRes = await pool.query('SELECT * FROM model_versions WHERE id=$1', [request.params.id]);
     const current = currentRes.rows[0];
@@ -223,7 +245,7 @@ async function adminRoutes(fastify, opts) {
     return { rolledBackFrom: current.id, rolledBackTo: target.id };
   });
 
-  fastify.get('/api/observability/kpis', { preHandler: [fastify.auth] }, async (request, reply) => {
+  fastify.get('/api/observability/kpis', { preHandler: [opts.permit('overview:read')] }, async (request, reply) => {
     logger.info(['handler', 'admin:kpis'], `kpis requested`);
     try {
       const invoices = await pool.query('SELECT COUNT(*)::int AS count FROM invoices');
@@ -231,13 +253,27 @@ async function adminRoutes(fastify, opts) {
       const rx = await pool.query('SELECT COUNT(*)::int AS count FROM prescriptions');
       const dispensed = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='dispensed'");
       const cancelled = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='voided'");
+      const fulfillmentRes = await pool.query(
+        `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (dispense_at - submit_at)) / 60.0), 0) AS avg_minutes
+         FROM (
+           SELECT
+             entity_id,
+             MIN(CASE WHEN action='submit' THEN created_at END) AS submit_at,
+             MIN(CASE WHEN action='dispense' THEN created_at END) AS dispense_at
+           FROM audit_events
+           WHERE entity_type='prescription'
+           GROUP BY entity_id
+         ) t
+         WHERE submit_at IS NOT NULL AND dispense_at IS NOT NULL AND dispense_at >= submit_at`,
+      );
       const orderVolume = Number(invoices.rows[0].count);
       const acceptanceRate = Number(rx.rows[0].count) === 0 ? 0 : Number(dispensed.rows[0].count) / Number(rx.rows[0].count);
       const cancellationRate = Number(rx.rows[0].count) === 0 ? 0 : Number(cancelled.rows[0].count) / Number(rx.rows[0].count);
+      const fulfillmentTimeMinutes = Number(fulfillmentRes.rows[0].avg_minutes || 0);
       return {
         orderVolume,
         acceptanceRate: Number(acceptanceRate.toFixed(3)),
-        fulfillmentTimeMinutes: 0,
+        fulfillmentTimeMinutes: Number(fulfillmentTimeMinutes.toFixed(2)),
         cancellationRate: Number(cancellationRate.toFixed(3)),
       };
     } catch (error) {
@@ -246,7 +282,8 @@ async function adminRoutes(fastify, opts) {
     }
   });
 
-  fastify.post('/api/observability/exceptions', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/observability/exceptions', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const b = request.body || {};
     if (!b.message) return reply.code(400).send({ code: 400, msg: 'message is required' });
     const inserted = await pool.query(
@@ -257,7 +294,8 @@ async function adminRoutes(fastify, opts) {
     return inserted.rows[0];
   });
 
-  fastify.get('/api/observability/exceptions', { preHandler: [opts.permit('*')] }, async (request) => {
+  fastify.get('/api/observability/exceptions', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     const page = Math.max(1, Number((request.query || {}).page || 1));
     const pageSize = Math.min(100, Math.max(1, Number((request.query || {}).pageSize || 20)));
     const q = String((request.query || {}).q || '').trim();
@@ -273,7 +311,8 @@ async function adminRoutes(fastify, opts) {
     return { items: rows.rows, total: Number(countRes.rows[0].count), page, pageSize };
   });
 
-  fastify.post('/api/admin/backups/nightly', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/admin/backups/nightly', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:backups:nightly'], 'scheduled nightly backup');
     const backupDir = process.env.BACKUP_DIR || '/app/backups';
     fs.mkdirSync(backupDir, { recursive: true });
@@ -294,11 +333,15 @@ async function adminRoutes(fastify, opts) {
     return { encrypted: true, retentionDays: 30, status: 'completed', artifactPath: filePath };
   });
 
-  fastify.get('/api/admin/backups/nightly', { preHandler: [opts.permit('*')] }, async () => (
+  fastify.get('/api/admin/backups/nightly', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return [];
+    return (
     await pool.query('SELECT * FROM backup_runs ORDER BY created_at DESC LIMIT 30')
-  ).rows);
+    ).rows;
+  });
 
-  fastify.post('/api/admin/backups/restore-drill', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/admin/backups/restore-drill', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:backups:restore-drill'], 'restore drill requested');
     const body = request.body || {};
     const result = await pool.query(
@@ -309,7 +352,8 @@ async function adminRoutes(fastify, opts) {
     return result.rows[0];
   });
 
-  fastify.get('/api/admin/backups/restore-drill', { preHandler: [opts.permit('*')] }, async () => {
+  fastify.get('/api/admin/backups/restore-drill', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return [];
     const result = await pool.query('SELECT * FROM backup_drills ORDER BY created_at DESC LIMIT 20');
     return result.rows;
   });

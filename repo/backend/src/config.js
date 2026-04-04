@@ -8,7 +8,7 @@ function requiredEnv(name) {
 }
 
 const env = {
-  PORT: Number(process.env.PORT || 13000),
+  PORT: Number(process.env.PORT || 3000),
   HOST: process.env.HOST || '0.0.0.0',
   DATABASE_URL: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/meridiancare-clinic',
   JWT_SECRET: requiredEnv('JWT_SECRET'),

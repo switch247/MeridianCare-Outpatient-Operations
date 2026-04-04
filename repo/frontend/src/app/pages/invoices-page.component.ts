@@ -321,7 +321,7 @@ export class InvoicesPageComponent {
 
   loadInvoices() {
     this.api.getInvoices().subscribe({
-      next: (res: any) => { this.invoices = res || []; },
+      next: (res: any) => { this.invoices = Array.isArray(res) ? res : (res?.items || []); },
       error: () => { this.invoices = []; },
     });
   }

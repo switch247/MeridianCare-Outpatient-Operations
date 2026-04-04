@@ -41,10 +41,22 @@ if [ "$ready" -ne 1 ]; then
 	exit 1
 fi
 
-echo "Running backend tests (all packages)..."
+echo "Running backend unit tests..."
 $COMPOSE exec -T backend sh -lc 'npm test --silent' || {
     echo "Backend tests failed" >&2
     exit 1
+}
+
+echo "Running backend API acceptance tests..."
+$COMPOSE exec -T backend sh -lc 'API_BASE_URL=http://localhost:3000 npm run test:api --silent' || {
+	echo "Backend API acceptance tests failed" >&2
+	exit 1
+}
+
+echo "Validating backend OpenAPI contract..."
+$COMPOSE exec -T backend sh -lc 'npm run test:openapi --silent' || {
+	echo "Backend OpenAPI validation failed" >&2
+	exit 1
 }
 
 echo "Running frontend tests..."
@@ -62,6 +74,19 @@ $COMPOSE exec -T frontend sh -lc '
 	npm test --silent
 ' || {
 	echo "Frontend tests failed" >&2
+	exit 1
+}
+
+echo "Running frontend UI E2E scenario tests (Playwright)..."
+$COMPOSE exec -T frontend sh -lc '
+	CHROME_BIN_PATH="$(command -v chromium-browser 2>/dev/null || command -v chromium 2>/dev/null || true)"
+	if [ -z "$CHROME_BIN_PATH" ]; then
+		echo "Chromium binary not found for Playwright." >&2
+		exit 1
+	fi
+	API_BASE_URL=http://backend:3000 PLAYWRIGHT_CHROMIUM_PATH="$CHROME_BIN_PATH" npm run test:e2e --silent
+' || {
+	echo "Frontend E2E scenario tests failed" >&2
 	exit 1
 }
 

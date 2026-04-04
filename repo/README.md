@@ -7,7 +7,6 @@ On-prem fullstack platform for clinic encounters, e-prescriptions, pharmacy/inve
 - `frontend/`: Angular desktop-first role workspaces (Physician, Pharmacist, Billing, Inventory, Admin, Auditor).
 - `backend/tests/unit_tests`: unit tests for core logic (security, discounts, allergy checks, state machine, masking, logging).
 - `backend/tests/API_tests`: API and E2E acceptance tests by requirement/phase.
-- `docs/requirements_traceability.md`: requirement-to-implementation and requirement-to-test matrix (1-41).
 
 ## One-Click Startup (Docker)
 ```bash
@@ -17,7 +16,24 @@ docker compose up --build
 - Frontend: http://localhost:14200
 - Backend health: http://localhost:13000/health
 
-## Verification (Docker-only)
+## Local Backend Startup (Non-Docker)
+1. Create env from template:
+```bash
+cp .env.template .env
+```
+2. Start PostgreSQL locally and create database `meridiancare-clinic`.
+3. Start backend:
+```bash
+cd backend
+npm install
+npm run start
+```
+4. Health check:
+```bash
+curl http://localhost:13000/health
+```
+
+## Verification (Docker)
 Run full suite:
 
 ```bash
@@ -25,7 +41,12 @@ Run full suite:
 ```
 
 Individual checks:
-
+```bash
+docker compose exec -T backend sh -lc 'npm test --silent'
+docker compose exec -T backend sh -lc 'API_BASE_URL=http://localhost:3000 npm run test:api --silent'
+docker compose exec -T frontend sh -lc 'npm test --silent'
+docker compose exec -T frontend sh -lc 'API_BASE_URL=http://backend:3000 npm run test:e2e:all --silent'
+```
 
 ## Security and Data Isolation
 - Local username/password auth only; minimum password length 12; bcrypt hashing.
@@ -45,5 +66,4 @@ Individual checks:
 - `admin@local` (`admin`)
 - `auditor@local` (`auditor`)
 
-Default password: `Password!123` (override with `SEED_PASSWORD` env var).
-
+Seed password is read from `SEED_PASSWORD` in `.env`.

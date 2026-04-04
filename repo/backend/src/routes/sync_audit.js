@@ -2,7 +2,10 @@ const { pool } = require('../db');
 const logger = require('../lib/logger');
 
 async function syncAuditRoutes(fastify, opts) {
-  fastify.post('/api/sync/enqueue', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/sync/enqueue', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!request.user || request.user.role !== 'admin') {
+      return reply.code(403).send({ code: 403, msg: 'Forbidden' });
+    }
     logger.info(['handler','sync:enqueue'], `enqueue sync ${request.body && request.body.entityType}`);
     const body = request.body || {};
     const result = await pool.query(
@@ -13,7 +16,7 @@ async function syncAuditRoutes(fastify, opts) {
     return result.rows[0];
   });
 
-  fastify.get('/api/sync/status', { preHandler: [opts.permit('*')] }, async () => {
+  fastify.get('/api/sync/status', { preHandler: [opts.permit('audit:read')] }, async () => {
     logger.info(['handler','sync:status'],'sync status requested');
     const result = await pool.query(
       'SELECT state, COUNT(*)::int AS count FROM offline_sync_queue GROUP BY state ORDER BY state',

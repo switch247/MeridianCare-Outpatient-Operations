@@ -15,13 +15,32 @@ export class ApiService {
   }
   setToken(token: string) { this.token.set(token); }
   getToken() { return this.token(); }
-  setRole(role: string) { this.role.set(role); localStorage.setItem('role', role); }
-  getRole() { return this.role() || (localStorage.getItem('role') || ''); }
+  setRole(role: string) {
+    this.role.set(role);
+    if (!role) {
+      localStorage.removeItem('role');
+      sessionStorage.removeItem('role');
+      return;
+    }
+    if (sessionStorage.getItem('token')) {
+      sessionStorage.setItem('role', role);
+      localStorage.removeItem('role');
+      return;
+    }
+    localStorage.setItem('role', role);
+    sessionStorage.removeItem('role');
+  }
+  getRole() { return this.role() || sessionStorage.getItem('role') || localStorage.getItem('role') || ''; }
   persistToken(token: string, remember = false) {
     this.token.set(token);
     // Persist securely: default to sessionStorage, only keep in localStorage when "remember"
-    if (remember) localStorage.setItem('token', token);
-    else sessionStorage.setItem('token', token);
+    if (remember) {
+      localStorage.setItem('token', token);
+      sessionStorage.removeItem('token');
+    } else {
+      sessionStorage.setItem('token', token);
+      localStorage.removeItem('token');
+    }
   }
   loadTokenFromStorage() {
     // Prefer sessionStorage for short-lived tokens, fall back to localStorage when present

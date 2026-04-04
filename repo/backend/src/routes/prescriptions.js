@@ -7,10 +7,20 @@ const { isActionAllowed, computeDispenseOutcome } = require('../services/prescri
 const logger = require('../lib/logger');
 
 async function prescriptionsRoutes(fastify, opts) {
+  const isAdmin = (request) => request.user && request.user.role === 'admin';
+  const requireClinicContext = (request, reply) => {
+    if (!request.user || !request.user.clinic_id) {
+      reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+      return false;
+    }
+    return true;
+  };
+
   fastify.post('/api/prescriptions', { preHandler: [opts.permit('prescription:write')] }, async (request, reply) => {
     logger.info(['handler','prescriptions:create'], `create prescription by ${request.user && request.user.username}`);
+    if (!requireClinicContext(request, reply)) return;
     const b = request.body || {};
-    const p = await pool.query('SELECT * FROM patients WHERE id=$1', [b.patientId]);
+    const p = await pool.query('SELECT * FROM patients WHERE id=$1 AND clinic_id=$2', [b.patientId, request.user.clinic_id]);
     const patient = p.rows[0];
     if (!patient) return reply.code(404).send({ code: 404, msg: 'Patient not found' });
     const conflict = findHighSeverityConflict(patient, b.drugName);
@@ -19,14 +29,18 @@ async function prescriptionsRoutes(fastify, opts) {
       const valid = await verifyPassword(b.reauthPassword, request.user.password_hash);
       if (!valid) return reply.code(401).send({ code: 401, msg: 'Invalid re-auth password' });
     }
-    const r = await pool.query('INSERT INTO prescriptions(encounter_id,patient_id,prescriber_id,drug_name,dose,route,quantity,instructions,override_reason,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *', [b.encounterId, b.patientId, request.user.id, b.drugName, b.dose, b.route, b.quantity, b.instructions, b.overrideReason || null, 'pending']);
+    const r = await pool.query(
+      'INSERT INTO prescriptions(encounter_id,patient_id,prescriber_id,drug_name,dose,route,quantity,instructions,override_reason,state,clinic_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING *',
+      [b.encounterId, b.patientId, request.user.id, b.drugName, b.dose, b.route, b.quantity, b.instructions, b.overrideReason || null, 'pending', request.user.clinic_id],
+    );
     await writeAudit({ entityType: 'prescription', entityId: r.rows[0].id, action: 'submit', actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: r.rows[0], correlationId: request.requestId });
     logger.info(['handler','prescriptions:create','created'], `prescription=${r.rows[0].id}`);
     reply.code(201); return r.rows[0];
   });
 
-  fastify.get('/api/pharmacy/queue', { preHandler: [opts.permit('prescription:review')] }, async () => (
-    await pool.query(
+  fastify.get('/api/pharmacy/queue', { preHandler: [opts.permit('prescription:review')] }, async (request, reply) => {
+    if (!requireClinicContext(request, reply)) return;
+    const rows = await pool.query(
       `SELECT p.id,
               p.state,
               p.instructions,
@@ -46,14 +60,18 @@ async function prescriptionsRoutes(fastify, opts) {
          ORDER BY on_hand DESC
          LIMIT 1
        ) inv ON TRUE
+       WHERE p.clinic_id=$1
        ORDER BY p.updated_at DESC`,
+      [request.user.clinic_id],
     )
-  ).rows);
+    return rows.rows;
+  });
 
   fastify.post('/api/pharmacy/:id/action', { preHandler: [opts.permit('prescription:approve')] }, async (request, reply) => {
     logger.info(['handler','prescriptions:action'], `action ${request.body && request.body.action} on ${request.params.id} by ${request.user && request.user.username}`);
+    if (!requireClinicContext(request, reply)) return;
     const b = request.body || {};
-    const r = await pool.query('SELECT * FROM prescriptions WHERE id=$1', [request.params.id]);
+    const r = await pool.query('SELECT * FROM prescriptions WHERE id=$1 AND clinic_id=$2', [request.params.id, request.user.clinic_id]);
     const rx = r.rows[0];
     if (!rx) return reply.code(404).send({ code: 404, msg: 'Prescription not found' });
     const actionPerm = b.action === 'approve' ? 'prescription:approve' : b.action === 'dispense' ? 'prescription:dispense' : b.action === 'void' ? 'prescription:void' : null;
@@ -104,9 +122,13 @@ async function prescriptionsRoutes(fastify, opts) {
           [itemId, 'dispense', dispenseQty, 'prescription', rx.id, b.lot || null, b.serial || null, b.reason || null, request.user.id],
         );
         const upd = await client.query(
-          'UPDATE prescriptions SET state=$1,dispensed_quantity=$2,version=version+1,updated_at=NOW() WHERE id=$3 RETURNING *',
-          [outcome.nextState, outcome.totalDispensed, rx.id],
+          'UPDATE prescriptions SET state=$1,dispensed_quantity=$2,version=version+1,updated_at=NOW() WHERE id=$3 AND clinic_id=$4 RETURNING *',
+          [outcome.nextState, outcome.totalDispensed, rx.id, request.user.clinic_id],
         );
+        if (!upd.rows[0]) {
+          await client.query('ROLLBACK');
+          return reply.code(404).send({ code: 404, msg: 'Prescription not found' });
+        }
         await client.query('COMMIT');
         await writeAudit({
           entityType: 'prescription',
@@ -127,13 +149,18 @@ async function prescriptionsRoutes(fastify, opts) {
       }
     }
 
-    const upd = await pool.query('UPDATE prescriptions SET state=$1,version=version+1,updated_at=NOW() WHERE id=$2 RETURNING *', [next, rx.id]);
+    const upd = await pool.query(
+      'UPDATE prescriptions SET state=$1,version=version+1,updated_at=NOW() WHERE id=$2 AND clinic_id=$3 RETURNING *',
+      [next, rx.id, request.user.clinic_id],
+    );
+    if (!upd.rows[0]) return reply.code(404).send({ code: 404, msg: 'Prescription not found' });
     await writeAudit({ entityType: 'prescription', entityId: rx.id, action: b.action, actorId: request.user.id, actorRole: request.user.role, eventData: b, snapshot: upd.rows[0], correlationId: request.requestId });
     return upd.rows[0];
   });
 
   fastify.get('/api/pharmacy/:id/movements', { preHandler: [opts.permit('prescription:review')] }, async (request, reply) => {
-    const rxRes = await pool.query('SELECT id FROM prescriptions WHERE id=$1', [request.params.id]);
+    if (!requireClinicContext(request, reply)) return;
+    const rxRes = await pool.query('SELECT id FROM prescriptions WHERE id=$1 AND clinic_id=$2', [request.params.id, request.user.clinic_id]);
     if (!rxRes.rows[0]) return reply.code(404).send({ code: 404, msg: 'Prescription not found' });
     const rows = await pool.query(
       "SELECT id,movement_type,quantity,item_id,lot,serial,reason,created_at FROM inventory_movements WHERE ref_type='prescription' AND ref_id=$1 ORDER BY created_at DESC",
@@ -143,6 +170,7 @@ async function prescriptionsRoutes(fastify, opts) {
   });
 
   fastify.post('/api/pharmacy/:id/return', { preHandler: [opts.permit('prescription:dispense')] }, async (request, reply) => {
+    if (!requireClinicContext(request, reply)) return;
     const b = request.body || {};
     if (!b.originalMovementId) return reply.code(400).send({ code: 400, msg: 'originalMovementId is required' });
     if (!Number.isInteger(b.quantity) || b.quantity < 1) return reply.code(400).send({ code: 400, msg: 'Return quantity must be a positive integer' });
@@ -152,8 +180,8 @@ async function prescriptionsRoutes(fastify, opts) {
     try {
       await client.query('BEGIN');
       const movementRes = await client.query(
-        "SELECT * FROM inventory_movements WHERE id=$1 AND ref_type='prescription' AND ref_id=$2 AND movement_type='dispense'",
-        [b.originalMovementId, request.params.id],
+        "SELECT mv.* FROM inventory_movements mv JOIN prescriptions p ON p.id=mv.ref_id WHERE mv.id=$1 AND mv.ref_type='prescription' AND mv.ref_id=$2 AND mv.movement_type='dispense' AND p.clinic_id=$3",
+        [b.originalMovementId, request.params.id, request.user.clinic_id],
       );
       const movement = movementRes.rows[0];
       if (!movement) {

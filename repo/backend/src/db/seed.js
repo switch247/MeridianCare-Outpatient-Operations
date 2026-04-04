@@ -93,7 +93,7 @@ async function run() {
 
     const existingPres = await pool.query('SELECT id FROM prescriptions WHERE encounter_id=$1 LIMIT 1', [encounterId]);
     if (!existingPres.rows.length) {
-      await pool.query('INSERT INTO prescriptions (encounter_id, patient_id, prescriber_id, drug_name, dose, route, quantity, instructions, state) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)', [encounterId, patientIds[0], physicianId, 'Amoxicillin', '500 mg', 'oral', 21, 'Take one tablet three times daily for 7 days', 'dispensed']);
+      await pool.query('INSERT INTO prescriptions (encounter_id, patient_id, prescriber_id, drug_name, dose, route, quantity, instructions, state, clinic_id) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)', [encounterId, patientIds[0], physicianId, 'Amoxicillin', '500 mg', 'oral', 21, 'Take one tablet three times daily for 7 days', 'dispensed', clinicId]);
       console.log('Created prescription');
     }
 

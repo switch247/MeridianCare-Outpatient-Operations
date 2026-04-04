@@ -6,11 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "vitest run",
-    "test:api:smoke": "node tests/API_tests/api_smoke_test.js",
-    "test:api:requirements": "node tests/API_tests/requirement_api_test.js",
-    "test:api": "npm run test:api:smoke && npm run test:api:requirements",
-    "test:run-single": "vitest run --threads=false",
+    "test": "vitest run --pool=threads",
+    "test:api": "node tests/API_tests/run_all_api_tests.js",
+    "test:openapi": "swagger-cli validate openapi.yaml",
+    "test:run-single": "vitest run --pool=threads --maxWorkers=1",
     "seed": "node src/db/seed.js",
     "test:watch": "vitest"
   },
@@ -31,6 +30,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@apidevtools/swagger-cli": "^4.0.4",
     "supertest": "^7.2.2",
     "vitest": "^4.1.2"
   }

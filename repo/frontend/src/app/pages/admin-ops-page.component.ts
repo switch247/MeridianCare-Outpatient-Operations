@@ -268,7 +268,7 @@ export class AdminOpsPageComponent {
   loadDrift() {
     // normalize backend shapes (snake_case or camelCase) and apply simple client-side filter
     this.api.getModelDrift().subscribe({ next: (res: any) => {
-      const list: any[] = res || [];
+      const list: any[] = Array.isArray(res) ? res : (res?.items || []);
       const normalized = (list || []).map((m: any) => {
         const baselineRaw = m.baseline_score ?? m.baselineScore ?? m.baseline;
         const currentRaw = m.current_score ?? m.currentScore ?? m.current;

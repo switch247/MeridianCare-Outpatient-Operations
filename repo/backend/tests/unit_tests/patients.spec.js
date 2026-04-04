@@ -16,7 +16,7 @@ describe('patients routes', () => {
     app = Fastify({ logger: false });
     const patientsRoutes = require('../../src/routes/patients');
     // permit that allows through
-    await app.register(patientsRoutes, { permit: () => async (req) => { req.user = { id: 'u1', role }; } });
+    await app.register(patientsRoutes, { permit: () => async (req) => { req.user = { id: 'u1', role, clinic_id: 'clinic-1' }; } });
     await app.ready();
   });
 

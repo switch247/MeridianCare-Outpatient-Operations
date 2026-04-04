@@ -24,18 +24,20 @@ export class AuthService {
       this.currentUser.set(null);
     }
     if (this.api.getToken() && !this.currentUser()) {
-      this.validateSession().catch(() => {
-        this.logout();
+      this.validateSession({ logoutOnUnauthorized: true, allowCachedOnError: true }).catch(() => {
+        // avoid hard logout on transient bootstrap failures
       });
     }
   }
 
-  async validateSession(): Promise<boolean> {
+  async validateSession(options?: { logoutOnUnauthorized?: boolean; allowCachedOnError?: boolean }): Promise<boolean> {
+    const logoutOnUnauthorized = options?.logoutOnUnauthorized ?? false;
+    const allowCachedOnError = options?.allowCachedOnError ?? true;
     if (!this.api.getToken()) return false;
     try {
       const user = (await firstValueFrom(this.api.getMe())) as any;
       if (!user?.id || !user?.role) {
-        this.logout();
+        if (logoutOnUnauthorized) this.logout();
         return false;
       }
       this.currentUser.set(user);
@@ -43,8 +45,15 @@ export class AuthService {
       else localStorage.setItem('user', JSON.stringify(user));
       this.api.setRole(user.role);
       return true;
-    } catch {
-      this.logout();
+    } catch (err: any) {
+      const status = Number(err?.status || err?.error?.code || 0);
+      if (status === 401 || status === 403) {
+        if (logoutOnUnauthorized) this.logout();
+        return false;
+      }
+      if (allowCachedOnError && !!this.currentUser() && !!this.api.getToken()) {
+        return true;
+      }
       return false;
     }
   }
@@ -71,6 +80,8 @@ export class AuthService {
     sessionStorage.removeItem('token');
     localStorage.removeItem('user');
     sessionStorage.removeItem('user');
+    localStorage.removeItem('role');
+    sessionStorage.removeItem('role');
     this.currentUser.set(null);
     this.api.setRole('');
     this.router.navigateByUrl('/');

@@ -41,15 +41,16 @@ function maskLicense(row) {
 }
 
 async function credentialingRoutes(fastify, opts) {
+  const isAdminRole = (role) => role === 'admin';
   const ensureAdmin = (request, reply) => {
-    if (!request.user || request.user.role !== 'admin') {
+    if (!request.user || !isAdminRole(request.user.role)) {
       reply.code(403).send({ code: 403, msg: 'Admin role required' });
       return false;
     }
     return true;
   };
 
-  fastify.get('/api/credentialing', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.get('/api/credentialing', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     const result = await pool.query(
       'SELECT id,entity_type,full_name,license_number,license_number_encrypted,license_expiry,status,version,source_row FROM credentialing_profiles ORDER BY id DESC LIMIT 200',
@@ -57,7 +58,7 @@ async function credentialingRoutes(fastify, opts) {
     return result.rows.map((r) => ({ ...r, license_number: maskLicense(r) }));
   });
 
-  fastify.post('/api/credentialing/onboard', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/credentialing/onboard', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'credentialing:onboard'], `onboard requested by ${request.user && request.user.username}`);
     const b = request.body || {};
@@ -74,7 +75,8 @@ async function credentialingRoutes(fastify, opts) {
     return { ...r.rows[0], license_number: maskLicense(r.rows[0]) };
   });
 
-  fastify.post('/api/credentialing/import', { preHandler: [fastify.auth] }, async (request, reply) => {
+  fastify.post('/api/credentialing/import', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'credentialing:import'], `import requested by ${request.user && request.user.username}`);
     const rows = Array.isArray((request.body || {}).rows) ? request.body.rows : [];
     const mapping = (request.body || {}).mapping || {};
@@ -116,7 +118,7 @@ async function credentialingRoutes(fastify, opts) {
     return { accepted: accepted.length, rejected: errors.length, errors, mappingUsed: mapping };
   });
 
-  fastify.get('/api/credentialing/export', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.get('/api/credentialing/export', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     const rows = (await pool.query('SELECT id,entity_type,full_name,license_expiry,status,created_at FROM credentialing_profiles ORDER BY created_at DESC LIMIT 500')).rows;
     const summary = {
@@ -127,12 +129,12 @@ async function credentialingRoutes(fastify, opts) {
     return { summary, rows };
   });
 
-  fastify.get('/api/organizations', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.get('/api/organizations', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     return (await pool.query('SELECT * FROM organizations ORDER BY created_at DESC LIMIT 200')).rows;
   });
 
-  fastify.post('/api/organizations', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.post('/api/organizations', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     const b = request.body || {};
     if (!b.name) return reply.code(400).send({ code: 400, msg: 'name is required' });
@@ -145,7 +147,7 @@ async function credentialingRoutes(fastify, opts) {
     return inserted.rows[0];
   });
 
-  fastify.put('/api/organizations/:id', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.put('/api/organizations/:id', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     const b = request.body || {};
     const updated = await pool.query(
@@ -158,7 +160,7 @@ async function credentialingRoutes(fastify, opts) {
     return updated.rows[0];
   });
 
-  fastify.delete('/api/organizations/:id', { preHandler: [opts.permit('*')] }, async (request, reply) => {
+  fastify.delete('/api/organizations/:id', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
     const deleted = await pool.query('DELETE FROM organizations WHERE id=$1 RETURNING id', [request.params.id]);
     if (!deleted.rows[0]) return reply.code(404).send({ code: 404, msg: 'Organization not found' });

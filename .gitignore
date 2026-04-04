@@ -116,3 +116,5 @@ postgres/
 backups/
 data/
 # sessions/
+
+.npm-cache/

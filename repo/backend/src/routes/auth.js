@@ -29,7 +29,7 @@ async function authRoutes(fastify, opts) {
     const expiresAt = new Date(Date.now() + ttlMin * 60 * 1000).toISOString();
     await pool.query('INSERT INTO sessions(user_id,jti,kiosk,revoked,last_active_at,expires_at) VALUES($1,$2,$3,$4,NOW(),$5)', [user.id, jti, kiosk, false, expiresAt]);
     logger.info(['handler','auth:login','success'], `user=${username} jti=${jti} kiosk=${kiosk}`);
-    const token = await reply.jwtSign({ sub: user.id, role: user.role, kiosk }, { jwtid: jti, expiresIn: `${ttlMin}m` });
+    const token = await reply.jwtSign({ sub: user.id, role: user.role, kiosk, jti }, { jwtid: jti, expiresIn: `${ttlMin}m` });
     // return safe user info along with token
     const safeUser = { id: user.id, username: user.username, role: user.role, clinic_id: user.clinic_id || null };
     return { token, role: user.role, user: safeUser };
@@ -66,7 +66,10 @@ async function authRoutes(fastify, opts) {
     } catch (e) { logger.error(['handler','auth:logout','error'], e.message); return reply.code(500).send({ code:500, msg:'Internal server error' }); }
   });
 
-  fastify.get('/api/auth/sessions', { preHandler: [opts.permit('*')] }, async (request) => {
+  fastify.get('/api/auth/sessions', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!request.user || request.user.role !== 'admin') {
+      return reply.code(403).send({ code: 403, msg: 'Forbidden' });
+    }
     logger.info(['handler','auth:sessions','list'], `sessions list requested by ${request.user && request.user.username}`);
     const rows = (await pool.query('SELECT id,user_id,jti,kiosk,revoked,last_active_at,expires_at,created_at FROM sessions ORDER BY created_at DESC LIMIT 100')).rows;
     return rows;

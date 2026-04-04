@@ -43,8 +43,13 @@ ALTER TABLE encounters ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL 
 CREATE TABLE IF NOT EXISTS prescriptions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), encounter_id UUID NOT NULL REFERENCES encounters(id), patient_id UUID NOT NULL REFERENCES patients(id),
   prescriber_id UUID NOT NULL REFERENCES users(id), drug_name TEXT NOT NULL, dose TEXT NOT NULL, route TEXT NOT NULL, quantity INT NOT NULL,
-  instructions TEXT NOT NULL, override_reason TEXT, state TEXT NOT NULL DEFAULT 'draft', version INT NOT NULL DEFAULT 1, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  instructions TEXT NOT NULL, override_reason TEXT, state TEXT NOT NULL DEFAULT 'draft', version INT NOT NULL DEFAULT 1, clinic_id UUID REFERENCES clinics(id), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS dispensed_quantity INT NOT NULL DEFAULT 0;
+ALTER TABLE prescriptions ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
+UPDATE prescriptions p
+SET clinic_id = pt.clinic_id
+FROM patients pt
+WHERE p.patient_id = pt.id AND p.clinic_id IS NULL;
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), sku TEXT UNIQUE NOT NULL, name TEXT NOT NULL, on_hand INT NOT NULL DEFAULT 0,
   low_stock_threshold INT NOT NULL DEFAULT 10, lot_tracking BOOLEAN NOT NULL DEFAULT FALSE, serial_tracking BOOLEAN NOT NULL DEFAULT FALSE);

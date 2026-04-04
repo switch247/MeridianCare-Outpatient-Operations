@@ -84,6 +84,16 @@ async function billingRoutes(fastify, opts) {
     logger.info(['handler', 'billing:invoice:create'], `create invoice by ${request.user && request.user.username}`);
     try {
       const b = request.body || {};
+      if (!request.user || !request.user.clinic_id) {
+        return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+      }
+      const patientScope = await pool.query(
+        'SELECT id FROM patients WHERE id=$1 AND clinic_id=$2',
+        [b.patientId, request.user.clinic_id],
+      );
+      if (!patientScope.rows[0]) {
+        return reply.code(403).send({ code: 403, msg: 'Forbidden' });
+      }
       const baseLines = b.lines || [];
       ensureValidLines(baseLines);
       const shipping = await resolveShipping(b.shipping);
@@ -146,7 +156,7 @@ async function billingRoutes(fastify, opts) {
     logger.info(['handler', 'billing:payment'], `payment for ${request.params.id} by ${request.user && request.user.username}`);
     const scope = scopeWhere(request);
     const invoiceRes = await pool.query(
-      `SELECT * FROM invoices WHERE id=$1${scope.clause}`,
+      `SELECT * FROM invoices i WHERE id=$1${scope.clause}`,
       [request.params.id, ...scope.params],
     );
     const invoice = invoiceRes.rows[0];
@@ -169,7 +179,7 @@ async function billingRoutes(fastify, opts) {
   fastify.post('/api/invoices/:id/cancel', { preHandler: [opts.permit('billing:write')] }, async (request, reply) => {
     const scope = scopeWhere(request);
     const invoiceRes = await pool.query(
-      `SELECT * FROM invoices WHERE id=$1${scope.clause}`,
+      `SELECT * FROM invoices i WHERE id=$1${scope.clause}`,
       [request.params.id, ...scope.params],
     );
     const invoice = invoiceRes.rows[0];

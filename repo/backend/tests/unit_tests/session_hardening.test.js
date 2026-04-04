@@ -28,9 +28,29 @@ describe('session and auth hardening', () => {
     expect(found).toBeTruthy();
   });
 
-  it.skip('rejects requests when session expired by inactivity', async () => {
-    // Session inactivity checking is currently disabled in the auth implementation
-    // This test should be re-enabled when session management is fully implemented
-    expect(true).toBe(true);
+  it('rejects requests when session expired by inactivity', async () => {
+    const userId = '11111111-1111-4111-8111-111111111111';
+    const nowMinus21 = new Date(Date.now() - 21 * 60 * 1000).toISOString();
+    const token = await app.jwt.sign({ sub: userId, role: 'physician' }, { jwtid: 'jti-expired', expiresIn: '30m' });
+
+    pool.query = vi.fn().mockImplementation(async (sql) => {
+      if (/SELECT \* FROM users WHERE id=\$1/.test(sql)) {
+        return { rows: [{ id: userId, role: 'physician', clinic_id: 'clinic-1' }] };
+      }
+      if (/SELECT \* FROM sessions WHERE jti=\$1/.test(sql)) {
+        return { rows: [{ id: 'sess-1', jti: 'jti-expired', user_id: userId, revoked: false, kiosk: false, last_active_at: nowMinus21, expires_at: null }] };
+      }
+      if (/UPDATE sessions SET revoked=true WHERE id=\$1/.test(sql)) {
+        return { rows: [] };
+      }
+      return { rows: [] };
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/patients',
+      headers: { authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(401);
   });
 });

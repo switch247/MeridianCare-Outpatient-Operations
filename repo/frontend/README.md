@@ -44,15 +44,13 @@ To execute unit tests with the [Karma](https://karma-runner.github.io) test runn
 ng test
 ```
 
-## Running end-to-end tests
+## Running API-backed workflow E2E scenarios
 
-For end-to-end (e2e) testing, run:
+These repository scenarios validate critical frontend business flows against the running backend API:
 
 ```bash
-ng e2e
+API_BASE_URL=http://localhost:13000 npm run test:e2e
 ```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
 
 ## Additional Resources
 

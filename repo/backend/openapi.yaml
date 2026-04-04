@@ -1,36 +1,344 @@
 openapi: 3.0.3
-info: { title: MeridianCare Offline API, version: 1.0.0 }
+info:
+  title: MeridianCare Offline API
+  version: 1.0.0
+servers:
+  - url: http://localhost:13000
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: integer
+        msg:
+          type: string
+      required: [code, msg]
+    AuthLoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+      required: [username, password]
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            username:
+              type: string
+            role:
+              type: string
+            clinic_id:
+              type: string
+              format: uuid
+              nullable: true
+      required: [token, role]
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        allergies:
+          type: array
+          items:
+            type: object
+        contraindications:
+          type: array
+          items:
+            type: object
+        clinic_id:
+          type: string
+          format: uuid
+          nullable: true
+      required: [id, name]
+    PatientCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        ssn:
+          type: string
+        allergies:
+          type: array
+          items:
+            type: object
+        contraindications:
+          type: array
+          items:
+            type: object
+      required: [name]
+    Prescription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        encounter_id:
+          type: string
+          format: uuid
+        patient_id:
+          type: string
+          format: uuid
+        drug_name:
+          type: string
+        dose:
+          type: string
+        route:
+          type: string
+        quantity:
+          type: integer
+        state:
+          type: string
+        version:
+          type: integer
+      required: [id, patient_id, drug_name, state, version]
+    PrescriptionCreateRequest:
+      type: object
+      properties:
+        encounterId:
+          type: string
+          format: uuid
+        patientId:
+          type: string
+          format: uuid
+        drugName:
+          type: string
+        dose:
+          type: string
+        route:
+          type: string
+        quantity:
+          type: integer
+        instructions:
+          type: string
+        overrideReason:
+          type: string
+        reauthPassword:
+          type: string
+      required: [encounterId, patientId, drugName, dose, route, quantity, instructions]
+    PharmacyActionRequest:
+      type: object
+      properties:
+        action:
+          type: string
+          enum: [approve, dispense, void]
+        expectedVersion:
+          type: integer
+        inventoryItemId:
+          type: string
+          format: uuid
+        dispenseQuantity:
+          type: integer
+        reason:
+          type: string
+      required: [action]
+    CredentialingImportRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+        mapping:
+          type: object
+          additionalProperties:
+            type: string
+      required: [rows]
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
 paths:
-  /api/auth/login: { post: { summary: Local login } }
-  /api/encounters/{id}/sign: { post: { summary: Sign encounter with diagnosis requirement } }
-  /api/prescriptions: { post: { summary: Submit prescription with hard-stop override policy } }
-  /api/pharmacy/queue: { get: { summary: Pharmacist review queue with inventory availability } }
-  /api/pharmacy/{id}/action: { post: { summary: Approve/dispense/void transitions } }
-  /api/pharmacy/{id}/movements: { get: { summary: Inventory linkage history for a prescription } }
-  /api/pharmacy/{id}/return: { post: { summary: Record return linked to original dispense movement } }
-  /api/billing/price: { post: { summary: Discount engine in fixed order } }
-  /api/invoices: { get: { summary: List invoices }, post: { summary: Create invoice with manual-payment lifecycle and optional home-delivery shipping } }
-  /api/invoices/{id}: { get: { summary: Invoice details } }
-  /api/invoices/{id}/payment: { post: { summary: Manual payment entry } }
-  /api/invoices/{id}/cancel: { post: { summary: Cancel unpaid invoice } }
-  /api/inventory/items: { get: { summary: List inventory catalog for on-hand management }, post: { summary: Create inventory item with lot/serial flags } }
-  /api/inventory/movements: { post: { summary: Inventory lifecycle movements } }
-  /api/inventory/alerts/low-stock: { get: { summary: Low-stock alert feed } }
-  /api/inventory/reports/variance: { get: { summary: Count variance summary report } }
-  /api/credentialing/onboard: { post: { summary: 30-day license eligibility check } }
-  /api/credentialing/import: { post: { summary: Batch import with row-level validation errors } }
-  /api/credentialing: { get: { summary: List credentialing profiles for admin workflows } }
-  /api/shipping/templates: { get: { summary: Local zone-based shipping templates } }
-  /api/crawler/run: { post: { summary: collect-parse-store orchestration } }
-  /api/crawler/queue: { get: { summary: Priority queue and checkpoint status } }
-  /api/crawler/process-next: { post: { summary: Process next ready job with node assignment } }
-  /api/crawler/{id}/retry: { post: { summary: Exponential backoff retry scheduling for crawler jobs } }
-  /api/models/register: { post: { summary: model version register + rollback semantics } }
-  /api/models/drift: { get: { summary: Drift monitoring summary for model versions } }
-  /api/models/{id}/rollback: { post: { summary: One-click rollback to prior deployed version } }
-  /api/observability/exceptions: { get: { summary: Exception alert feed in admin console }, post: { summary: Record exception alert } }
-  /api/admin/backups/nightly: { post: { summary: encrypted nightly backup schedule } }
-  /api/admin/backups/restore-drill: { post: { summary: Record monthly restore drill evidence }, get: { summary: List restore drill history } }
-  /api/sync/enqueue: { post: { summary: Queue offline client mutation for later sync } }
-  /api/sync/status: { get: { summary: Offline sync queue status by state } }
-  /api/audit: { get: { summary: auditor export endpoint } }
+  /api/auth/login:
+    post:
+      summary: Local login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthLoginRequest'
+      responses:
+        '200':
+          description: Auth success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/auth/me:
+    get:
+      summary: Current authenticated user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/patients:
+    post:
+      summary: Create patient
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientCreateRequest'
+      responses:
+        '201':
+          description: Created patient
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/prescriptions:
+    post:
+      summary: Submit prescription with hard-stop override policy
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PrescriptionCreateRequest'
+      responses:
+        '201':
+          description: Created prescription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/pharmacy/queue:
+    get:
+      summary: Pharmacist review queue with inventory availability
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Queue rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/pharmacy/{id}/action:
+    post:
+      summary: Approve/dispense/void transitions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PharmacyActionRequest'
+      responses:
+        '200':
+          description: Updated prescription
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Prescription'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/credentialing/import:
+    post:
+      summary: Batch import with row-level validation errors
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialingImportRequest'
+      responses:
+        '200':
+          description: Import result
+          content:
+            application/json:
+              schema:
+                type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
