@@ -6,9 +6,9 @@ COMPOSE="docker compose"
 # Bring up services
 $COMPOSE up -d --build
 
-echo "Waiting up to 60s for Postgres readiness..."
+echo "Waiting up to 30s for Postgres readiness..."
 db_ready=0
-for i in $(seq 1 60); do
+for i in $(seq 1 30); do
 	if $COMPOSE exec -T db sh -lc 'pg_isready -U postgres -d meridiancare-clinic' >/dev/null 2>&1; then
 		db_ready=1
 		break
@@ -17,7 +17,7 @@ for i in $(seq 1 60); do
 done
 
 if [ "$db_ready" -ne 1 ]; then
-	echo "Postgres did not become ready within 60s. Showing DB logs for debugging:"
+	echo "Postgres did not become ready within 30s. Showing DB logs for debugging:"
 	$COMPOSE logs --no-color db || true
 	exit 1
 fi
@@ -42,7 +42,7 @@ if [ "$ready" -ne 1 ]; then
 fi
 
 echo "Running backend unit tests..."
-$COMPOSE exec -T backend sh -lc 'npm test --silent' || {
+$COMPOSE exec -T backend sh -lc 'npm run test:run-single --silent' || {
     echo "Backend tests failed" >&2
     exit 1
 }
@@ -71,7 +71,8 @@ $COMPOSE exec -T frontend sh -lc '
 		exit 1
 	fi
 	export CHROME_BIN="$CHROME_BIN_PATH"
-	npm test --silent
+	export NODE_OPTIONS="--max-old-space-size=768"
+	npm run test:ci --silent
 ' || {
 	echo "Frontend tests failed" >&2
 	exit 1

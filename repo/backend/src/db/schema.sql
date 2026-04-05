@@ -52,10 +52,22 @@ FROM patients pt
 WHERE p.patient_id = pt.id AND p.clinic_id IS NULL;
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), sku TEXT UNIQUE NOT NULL, name TEXT NOT NULL, on_hand INT NOT NULL DEFAULT 0,
-  low_stock_threshold INT NOT NULL DEFAULT 10, lot_tracking BOOLEAN NOT NULL DEFAULT FALSE, serial_tracking BOOLEAN NOT NULL DEFAULT FALSE);
+  low_stock_threshold INT NOT NULL DEFAULT 10, lot_tracking BOOLEAN NOT NULL DEFAULT FALSE, serial_tracking BOOLEAN NOT NULL DEFAULT FALSE,
+  clinic_id UUID REFERENCES clinics(id));
 CREATE TABLE IF NOT EXISTS inventory_movements (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), item_id UUID NOT NULL REFERENCES inventory_items(id), movement_type TEXT NOT NULL,
-  quantity INT NOT NULL, ref_type TEXT, ref_id UUID, lot TEXT, serial TEXT, reason TEXT, created_by UUID REFERENCES users(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+  quantity INT NOT NULL, ref_type TEXT, ref_id UUID, lot TEXT, serial TEXT, reason TEXT, created_by UUID REFERENCES users(id),
+  clinic_id UUID REFERENCES clinics(id), created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
+ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
+ALTER TABLE inventory_movements ADD COLUMN IF NOT EXISTS clinic_id UUID REFERENCES clinics(id);
+UPDATE inventory_items i
+SET clinic_id = c.id
+FROM (SELECT id FROM clinics ORDER BY created_at ASC LIMIT 1) c
+WHERE i.clinic_id IS NULL;
+UPDATE inventory_movements m
+SET clinic_id = i.clinic_id
+FROM inventory_items i
+WHERE m.item_id = i.id AND m.clinic_id IS NULL;
 CREATE TABLE IF NOT EXISTS invoices (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), patient_id UUID NOT NULL REFERENCES patients(id), lines JSONB NOT NULL DEFAULT '[]'::jsonb,
   subtotal NUMERIC(12,2) NOT NULL DEFAULT 0, plan_discount NUMERIC(12,2) NOT NULL DEFAULT 0, coupon_discount NUMERIC(12,2) NOT NULL DEFAULT 0,

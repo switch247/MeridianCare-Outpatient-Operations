@@ -52,7 +52,7 @@ Individual checks:
 docker compose exec -T backend sh -lc 'npm test --silent'
 docker compose exec -T backend sh -lc 'API_BASE_URL=http://localhost:3000 npm run test:api --silent'
 docker compose exec -T frontend sh -lc 'npm test --silent'
-docker compose exec -T frontend sh -lc 'API_BASE_URL=http://backend:3000 npm run test:e2e:all --silent'
+docker compose exec -T frontend sh -lc 'API_BASE_URL=http://backend:3000 npm run test:e2e --silent'
 ```
 
 Local equivalents (run from repo root):

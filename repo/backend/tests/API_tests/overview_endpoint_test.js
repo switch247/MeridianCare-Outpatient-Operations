@@ -11,6 +11,17 @@ async function runOverviewApi(api, sessions) {
   assert.ok(adminOverview.body && adminOverview.body.kpis);
   assert.ok(Array.isArray(adminOverview.body.recentOperations));
 
+  // Verify full KPI set is present
+  const kpis = adminOverview.body.kpis;
+  assert.ok(typeof kpis.orderVolume === 'number', 'overview kpis.orderVolume should be a number');
+  assert.ok(typeof kpis.acceptanceRate === 'number', 'overview kpis.acceptanceRate should be a number');
+  assert.ok(typeof kpis.fulfillmentTimeMinutes === 'number', 'overview kpis.fulfillmentTimeMinutes should be a number');
+  assert.ok(typeof kpis.cancellationRate === 'number', 'overview kpis.cancellationRate should be a number');
+  assert.ok(typeof kpis.totalEncounters === 'number', 'overview kpis.totalEncounters should be a number');
+  assert.ok(typeof kpis.totalPatients === 'number', 'overview kpis.totalPatients should be a number');
+  assert.ok(typeof kpis.totalPrescriptions === 'number', 'overview kpis.totalPrescriptions should be a number');
+  assert.ok(typeof kpis.lowStockItems === 'number', 'overview kpis.lowStockItems should be a number');
+
   const auditorOverview = await auditor.get('/api/overview');
   assert.equal(auditorOverview.status, 200);
   assert.ok(auditorOverview.body && auditorOverview.body.kpis);

@@ -4,7 +4,7 @@ const { spawn } = require('child_process');
 const { pool } = require('../db');
 const { encryptBuffer } = require('../utils/crypto');
 const { env } = require('../config');
-const { computeBackoffSeconds, nextStage } = require('../services/crawler');
+const { computeBackoffSeconds, nextStage, NodeOrchestrator } = require('../services/crawler');
 const { createUser } = require('../services/users');
 const { forecastFromModel, topMedicationRecommendations, similarPrescriptionSuggestions, dateSeriesFromRows } = require('../services/forecasting');
 const logger = require('../lib/logger');
@@ -117,32 +117,7 @@ async function adminRoutes(fastify, opts) {
     }
     return true;
   };
-  async function resolveNodeAssignment(preferredNodeId, desiredNodes = 1) {
-    if (preferredNodeId) return preferredNodeId;
-    const workers = (await pool.query(
-      `SELECT COALESCE(node_id,'node-1') AS node_id, COUNT(*)::int AS active_count
-       FROM crawler_jobs
-       WHERE state IN ('queued','retry_wait')
-       GROUP BY COALESCE(node_id,'node-1')
-       ORDER BY active_count ASC, node_id ASC`,
-    )).rows;
-    const capacity = Math.max(1, Number(desiredNodes || 1));
-    const counts = {};
-    for (let i = 1; i <= capacity; i += 1) counts[`node-${i}`] = 0;
-    for (const w of workers) {
-      const key = String(w.node_id || '');
-      if (counts[key] !== undefined) counts[key] = Number(w.active_count || 0);
-    }
-    return Object.keys(counts).sort((a, b) => counts[a] - counts[b] || a.localeCompare(b))[0];
-  }
-
-  async function autoscaleSignal() {
-    const queueDepth = Number((await pool.query("SELECT COUNT(*)::int AS count FROM crawler_jobs WHERE state IN ('queued','retry_wait')")).rows[0].count);
-    const nodeCount = Number((await pool.query('SELECT COUNT(DISTINCT COALESCE(node_id,\'node-1\'))::int AS count FROM crawler_jobs')).rows[0].count || 1);
-    const desiredNodes = Math.max(1, Math.min(8, Math.ceil(queueDepth / 5)));
-    const action = desiredNodes > nodeCount ? 'scale_out' : desiredNodes < nodeCount ? 'scale_in' : 'steady';
-    return { queueDepth, nodeCount, desiredNodes, action, applied: true };
-  }
+  const orchestrator = new NodeOrchestrator(pool, logger);
 
   fastify.post('/api/admin/users', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
@@ -165,8 +140,8 @@ async function adminRoutes(fastify, opts) {
     if (!ensureAdmin(request, reply)) return;
     logger.info(['handler', 'admin:crawler:run'], `crawl requested by ${request.user && request.user.username}`);
     const body = request.body || {};
-    const scaling = await autoscaleSignal();
-    const assignedNodeId = await resolveNodeAssignment(body.nodeId || null, scaling.desiredNodes);
+    const scaling = await orchestrator.applyScaling();
+    const assignedNodeId = await orchestrator.assignNode(body.nodeId || null);
     const result = await pool.query(
       'INSERT INTO crawler_jobs(source_name,priority,state,checkpoint,next_retry_at,node_id) VALUES($1,$2,$3,$4,NOW(),$5) RETURNING *',
       [body.sourceName || 'manual-ingest', Number(body.priority || 5), 'queued', JSON.stringify({ stage: 'collect', processed: 0 }), assignedNodeId],
@@ -252,6 +227,20 @@ async function adminRoutes(fastify, opts) {
       ['retry_wait', retries, String(backoffSeconds), job.id],
     );
     return next.rows[0];
+  });
+
+  fastify.get('/api/crawler/nodes', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
+    await orchestrator.ensureNodesTable();
+    const nodes = await pool.query('SELECT * FROM crawler_nodes ORDER BY node_id ASC');
+    return nodes.rows;
+  });
+
+  fastify.post('/api/crawler/scale', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
+    if (!ensureAdmin(request, reply)) return;
+    logger.info(['handler', 'admin:crawler:scale'], `manual scale requested by ${request.user && request.user.username}`);
+    const result = await orchestrator.applyScaling();
+    return result;
   });
 
   fastify.post('/api/models/register', { preHandler: [opts.permit('admin')] }, async (request, reply) => {

@@ -11,6 +11,8 @@ async function runAdminAccess(api, sessions) {
     () => physician.get('/api/crawler/queue'),
     () => physician.post('/api/crawler/process-next').send({}),
     () => physician.post('/api/crawler/00000000-0000-0000-0000-000000000000/retry').send({}),
+    () => physician.get('/api/crawler/nodes'),
+    () => physician.post('/api/crawler/scale').send({}),
     () => physician.post('/api/models/register').send({ modelType: 'visit_volume', versionTag: 'x' }),
     () => physician.get('/api/models/drift'),
     () => physician.post('/api/models/00000000-0000-0000-0000-000000000000/rollback').send({}),

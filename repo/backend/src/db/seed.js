@@ -73,7 +73,13 @@ async function run() {
       { sku: 'KIT-001', name: 'Suture Kit', on_hand: 25 }
     ];
     for (const it of items) {
-      await pool.query(`INSERT INTO inventory_items (sku, name, on_hand, low_stock_threshold, lot_tracking) VALUES ($1,$2,$3,$4,$5) ON CONFLICT (sku) DO UPDATE SET name=EXCLUDED.name, on_hand=EXCLUDED.on_hand, low_stock_threshold=EXCLUDED.low_stock_threshold, lot_tracking=EXCLUDED.lot_tracking`, [it.sku, it.name, it.on_hand, 10, false]);
+      await pool.query(
+        `INSERT INTO inventory_items (sku, name, on_hand, low_stock_threshold, lot_tracking, clinic_id)
+         VALUES ($1,$2,$3,$4,$5,$6)
+         ON CONFLICT (sku)
+         DO UPDATE SET name=EXCLUDED.name, on_hand=EXCLUDED.on_hand, low_stock_threshold=EXCLUDED.low_stock_threshold, lot_tracking=EXCLUDED.lot_tracking, clinic_id=EXCLUDED.clinic_id`,
+        [it.sku, it.name, it.on_hand, 10, false, clinicId],
+      );
     }
     console.log('Seeded inventory items');
 

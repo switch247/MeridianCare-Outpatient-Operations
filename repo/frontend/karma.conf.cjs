@@ -29,6 +29,10 @@ module.exports = function (config) {
         flags: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
       }
     },
+    captureTimeout: 180000,
+    browserNoActivityTimeout: 120000,
+    browserDisconnectTimeout: 20000,
+    browserDisconnectTolerance: 2,
     restartOnFileChange: true
   });
 };

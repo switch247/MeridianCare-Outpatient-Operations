@@ -9,7 +9,7 @@
     "test": "vitest run --pool=threads",
     "test:api": "node tests/API_tests/run_all_api_tests.js",
     "test:openapi": "swagger-cli validate openapi.yaml",
-    "test:run-single": "vitest run --pool=threads --maxWorkers=1",
+    "test:run-single": "vitest run --pool=forks --maxWorkers=1",
     "seed": "node src/db/seed.js",
     "test:watch": "vitest"
   },

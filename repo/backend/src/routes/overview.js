@@ -15,9 +15,40 @@ async function overviewRoutes(fastify, opts) {
 
   fastify.get('/api/overview', { preHandler: [opts.permit('overview:read')] }, async (request) => {
     logger.info(['handler', 'overview'], 'overview requested');
-    const kpisRes = await pool.query('SELECT COUNT(*)::int AS invoices FROM invoices');
-    const invoicesCount = Number((kpisRes.rows[0] && kpisRes.rows[0].invoices) || 0);
 
+    // Full KPI computation
+    const invoicesRes = await pool.query('SELECT COUNT(*)::int AS count FROM invoices');
+    const paidRes = await pool.query("SELECT COUNT(*)::int AS count FROM invoices WHERE state='paid'");
+    const rxRes = await pool.query('SELECT COUNT(*)::int AS count FROM prescriptions');
+    const dispensedRes = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='dispensed'");
+    const cancelledRes = await pool.query("SELECT COUNT(*)::int AS count FROM prescriptions WHERE state='voided'");
+    const fulfillmentRes = await pool.query(
+      `SELECT COALESCE(AVG(EXTRACT(EPOCH FROM (dispense_at - submit_at)) / 60.0), 0) AS avg_minutes
+       FROM (
+         SELECT
+           entity_id,
+           MIN(CASE WHEN action='submit' THEN created_at END) AS submit_at,
+           MIN(CASE WHEN action='dispense' THEN created_at END) AS dispense_at
+         FROM audit_events
+         WHERE entity_type='prescription'
+         GROUP BY entity_id
+       ) t
+       WHERE submit_at IS NOT NULL AND dispense_at IS NOT NULL AND dispense_at >= submit_at`,
+    );
+    const encounterRes = await pool.query('SELECT COUNT(*)::int AS count FROM encounters');
+    const patientsRes = await pool.query('SELECT COUNT(*)::int AS count FROM patients');
+    const inventoryLowRes = await pool.query('SELECT COUNT(*)::int AS count FROM inventory_items WHERE on_hand <= low_stock_threshold');
+
+    const orderVolume = Number(invoicesRes.rows[0].count);
+    const paidCount = Number(paidRes.rows[0].count);
+    const rxCount = Number(rxRes.rows[0].count);
+    const dispensedCount = Number(dispensedRes.rows[0].count);
+    const cancelledCount = Number(cancelledRes.rows[0].count);
+    const acceptanceRate = rxCount === 0 ? 0 : dispensedCount / rxCount;
+    const cancellationRate = rxCount === 0 ? 0 : cancelledCount / rxCount;
+    const fulfillmentTimeMinutes = Number(fulfillmentRes.rows[0].avg_minutes || 0);
+
+    // Recent operations
     const recentAudits = (
       await pool.query('SELECT id,action,event_data,created_at FROM audit_events ORDER BY created_at DESC LIMIT 10')
     ).rows;
@@ -47,7 +78,16 @@ async function overviewRoutes(fastify, opts) {
 
     return {
       kpis: {
-        orderVolume: invoicesCount,
+        orderVolume,
+        paidInvoices: paidCount,
+        totalPrescriptions: rxCount,
+        dispensedPrescriptions: dispensedCount,
+        acceptanceRate: Number(acceptanceRate.toFixed(3)),
+        fulfillmentTimeMinutes: Number(fulfillmentTimeMinutes.toFixed(2)),
+        cancellationRate: Number(cancellationRate.toFixed(3)),
+        totalEncounters: Number(encounterRes.rows[0].count),
+        totalPatients: Number(patientsRes.rows[0].count),
+        lowStockItems: Number(inventoryLowRes.rows[0].count),
       },
       recentOperations: recent.slice(0, 12),
     };

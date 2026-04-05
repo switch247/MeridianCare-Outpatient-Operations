@@ -21,7 +21,9 @@ async function usersRoutes(fastify, opts) {
 
   fastify.get('/api/users/:id', { preHandler: [opts.permit('user:read')] }, async (request, reply) => {
     logger.info(['handler','users:get'], `get user ${request.params.id} by ${request.user && request.user.username}`);
-    const u = await getUser(request.params.id);
+    const isAdmin = request.user && request.user.role === 'admin';
+    const clinicId = request.user && request.user.clinic_id ? request.user.clinic_id : null;
+    const u = await getUser(request.params.id, { clinicId, isAdmin });
     if (!u) return reply.code(404).send({ code: 404, msg: 'User not found' });
     return u;
   });
@@ -29,8 +31,19 @@ async function usersRoutes(fastify, opts) {
   fastify.put('/api/users/:id', { preHandler: [opts.permit('user:write')] }, async (request, reply) => {
     logger.info(['handler','users:update'], `update user ${request.params.id} by ${request.user && request.user.username}`);
     const b = request.body || {};
+    const isAdmin = request.user && request.user.role === 'admin';
+    const scopeClinicId = request.user && request.user.clinic_id ? request.user.clinic_id : null;
+    if (!isAdmin && !scopeClinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
     const clinicId = request.user && request.user.clinic_id ? request.user.clinic_id : b.clinicId || null;
-    const u = await updateUser(request.params.id, { username: b.username, role: b.role, clinicId, correlationId: request.requestId }, request.user.id, request.user.role);
+    const u = await updateUser(
+      request.params.id,
+      { username: b.username, role: b.role, clinicId, correlationId: request.requestId, scopeClinicId, isAdmin },
+      request.user.id,
+      request.user.role,
+    );
+    if (!u) return reply.code(404).send({ code: 404, msg: 'User not found' });
     logger.info(['handler','users:update','saved'], `user=${u.username}`);
     return u;
   });
@@ -38,9 +51,19 @@ async function usersRoutes(fastify, opts) {
   fastify.delete('/api/users/:id', { preHandler: [opts.permit('user:write')] }, async (request, reply) => {
     logger.info(['handler','users:delete'], `delete user ${request.params.id} by ${request.user && request.user.username}`);
     const b = request.body || {};
+    const isAdmin = request.user && request.user.role === 'admin';
+    const scopeClinicId = request.user && request.user.clinic_id ? request.user.clinic_id : null;
+    if (!isAdmin && !scopeClinicId) {
+      return reply.code(403).send({ code: 403, msg: 'Clinic scope required' });
+    }
     if (!b.confirmed || !b.reason) return reply.code(400).send({ code: 400, msg: 'Deletion requires confirmed=true and a reason' });
     try {
-      const deleted = await deleteUser(request.params.id, { confirmed: b.confirmed, reason: b.reason, correlationId: request.requestId }, request.user.id, request.user.role);
+      const deleted = await deleteUser(
+        request.params.id,
+        { confirmed: b.confirmed, reason: b.reason, correlationId: request.requestId, scopeClinicId, isAdmin },
+        request.user.id,
+        request.user.role,
+      );
       logger.info(['handler','users:delete','deleted'], `user=${request.params.id} reason=${b.reason}`);
       return deleted;
     } catch (e) { logger.error(['handler','users:delete','error'], e.message); return reply.code(400).send({ code: 400, msg: e.message }); }

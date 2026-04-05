@@ -18,6 +18,8 @@ async function main() {
   const { runObjectIsolation } = require('./object_isolation.test');
   const { runAdminAccess } = require('./admin_access.test');
   const { runAdversaryHardGate } = require('./adversary_hard_gate.test');
+  const { runRouteIsolationMatrix } = require('./route_isolation_matrix.test');
+  const { runBillingUat } = require('./billing_uat.test');
 
   const { app, api } = await createApiContext();
   const sessions = await bootstrapAuth(api);
@@ -29,6 +31,8 @@ async function main() {
     await runNamed('object-isolation', runObjectIsolation, api, sessions);
     await runNamed('admin-access-negative', runAdminAccess, api, sessions);
     await runNamed('adversary-hard-gate', runAdversaryHardGate, api, sessions);
+    await runNamed('route-isolation-matrix', runRouteIsolationMatrix, api, sessions);
+    await runNamed('billing-uat', runBillingUat, api, sessions);
     console.log('[api] all API acceptance tests passed');
   } finally {
     await app.close();
