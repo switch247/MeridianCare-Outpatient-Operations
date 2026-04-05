@@ -41,6 +41,9 @@ async function runRouteIsolationMatrix(api, sessions) {
   const userB = await createUserInClinic({ username: `matrix_doc_b_${suffix}`, password, role: 'physician', clinicId: clinic2Id });
   const pharmacistB = await createUserInClinic({ username: `matrix_pharm_b_${suffix}`, password, role: 'pharmacist', clinicId: clinic2Id });
   const billingB = await createUserInClinic({ username: `matrix_bill_b_${suffix}`, password, role: 'billing', clinicId: clinic2Id });
+  const adminB = await createUserInClinic({ username: `matrix_admin_b_${suffix}`, password, role: 'admin', clinicId: clinic2Id });
+  const inventoryA = await createUserInClinic({ username: `matrix_inv_a_${suffix}`, password, role: 'inventory', clinicId: clinic1Id });
+  const inventoryB = await createUserInClinic({ username: `matrix_inv_b_${suffix}`, password, role: 'inventory', clinicId: clinic2Id });
 
   // Login all users
   const loginA = await api.post('/api/auth/login').send({ username: userA.username, password });
@@ -58,6 +61,18 @@ async function runRouteIsolationMatrix(api, sessions) {
   const loginBillB = await api.post('/api/auth/login').send({ username: billingB.username, password });
   assert.equal(loginBillB.status, 200);
   const billB = withToken(api, loginBillB.body.token);
+
+  const loginAdminB = await api.post('/api/auth/login').send({ username: adminB.username, password });
+  assert.equal(loginAdminB.status, 200);
+  const scopedAdminB = withToken(api, loginAdminB.body.token);
+
+  const loginInvA = await api.post('/api/auth/login').send({ username: inventoryA.username, password });
+  assert.equal(loginInvA.status, 200);
+  const invA = withToken(api, loginInvA.body.token);
+
+  const loginInvB = await api.post('/api/auth/login').send({ username: inventoryB.username, password });
+  assert.equal(loginInvB.status, 200);
+  const invB = withToken(api, loginInvB.body.token);
 
   // === Seed data in Clinic A ===
   const patientA = await docA.post('/api/patients').send({
@@ -88,6 +103,15 @@ async function runRouteIsolationMatrix(api, sessions) {
   });
   assert.equal(rxA.status, 201);
 
+  const itemA = await invA.post('/api/inventory/items').send({
+    sku: `MATRIX-SKU-${suffix}`,
+    name: `Matrix Item ${suffix}`,
+    lowStockThreshold: 5,
+    lotTracking: false,
+    serialTracking: false,
+  });
+  assert.equal(itemA.status, 201);
+
   // === Route isolation matrix: Clinic B users cannot access Clinic A data ===
   const matrix = [
     // [description, requestFn, expectedStatuses]
@@ -102,6 +126,10 @@ async function runRouteIsolationMatrix(api, sessions) {
     ['POST /api/pharmacy/:id/action approve (cross-clinic)', () => pharmB.post(`/api/pharmacy/${rxA.body.id}/action`).send({ action: 'approve', expectedVersion: rxA.body.version }), [403, 404]],
     ['POST /api/pharmacy/:id/action void (cross-clinic)', () => pharmB.post(`/api/pharmacy/${rxA.body.id}/action`).send({ action: 'void', expectedVersion: rxA.body.version, reason: 'test' }), [403, 404]],
     ['GET /api/pharmacy/:id/movements (cross-clinic)', () => pharmB.get(`/api/pharmacy/${rxA.body.id}/movements`), [403, 404]],
+    ['GET /api/users/:id (cross-clinic scoped admin)', () => scopedAdminB.get(`/api/users/${userA.id}`), [403, 404]],
+    ['PUT /api/users/:id (cross-clinic scoped admin)', () => scopedAdminB.put(`/api/users/${userA.id}`).send({ username: `matrix_takeover_${suffix}`, role: 'physician' }), [403, 404]],
+    ['DELETE /api/users/:id (cross-clinic scoped admin)', () => scopedAdminB.delete(`/api/users/${userA.id}`).send({ confirmed: true, reason: 'cross-clinic probe' }), [403, 404]],
+    ['POST /api/inventory/movements (cross-clinic item)', () => invB.post('/api/inventory/movements').send({ itemId: itemA.body.id, movementType: 'receive', quantity: 1 }), [403, 404]],
   ];
 
   for (const [desc, requestFn, expectedStatuses] of matrix) {
@@ -139,6 +167,11 @@ async function runRouteIsolationMatrix(api, sessions) {
     thresholdRule: { threshold: 100, off: 0 },
   });
   assert.ok([403, 404].includes(crossInvoice.status), `Cross-clinic invoice should be denied, got ${crossInvoice.status}`);
+
+  const bInventory = await invB.get('/api/inventory/items');
+  assert.equal(bInventory.status, 200);
+  const foundItem = (bInventory.body || []).find((i) => i.id === itemA.body.id);
+  assert.equal(foundItem, undefined, 'Clinic B should not see Clinic A inventory items in list');
 }
 
 module.exports = { runRouteIsolationMatrix };
