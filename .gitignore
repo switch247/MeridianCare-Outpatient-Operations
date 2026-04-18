@@ -112,6 +112,7 @@ build/
 .meta
 .agents
 
+session/
 postgres/
 backups/
 data/
