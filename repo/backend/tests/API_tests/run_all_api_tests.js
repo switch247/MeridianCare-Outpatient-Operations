@@ -20,6 +20,7 @@ async function main() {
   const { runAdversaryHardGate } = require('./adversary_hard_gate.test');
   const { runRouteIsolationMatrix } = require('./route_isolation_matrix.test');
   const { runBillingUat } = require('./billing_uat.test');
+  const { runComprehensiveCoverage } = require('./comprehensive_coverage.test');
 
   const { app, api } = await createApiContext();
   const sessions = await bootstrapAuth(api);
@@ -33,6 +34,7 @@ async function main() {
     await runNamed('adversary-hard-gate', runAdversaryHardGate, api, sessions);
     await runNamed('route-isolation-matrix', runRouteIsolationMatrix, api, sessions);
     await runNamed('billing-uat', runBillingUat, api, sessions);
+    await runNamed('comprehensive-coverage', runComprehensiveCoverage, api, sessions);
     console.log('[api] all API acceptance tests passed');
   } finally {
     await app.close();

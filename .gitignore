@@ -107,7 +107,7 @@ logs/
 dist/
 build/
 
-.tmp
+# .tmp
 .reports
 .meta
 .agents
@@ -115,6 +115,6 @@ build/
 postgres/
 backups/
 data/
-# sessions/
-
+.claude/
+/memory
 .npm-cache/

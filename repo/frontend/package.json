@@ -9,7 +9,8 @@
     "test": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox --source-map=false --progress=false --code-coverage=false",
     "test:watch": "ng test",
     "test:ci": "ng test --watch=false --browsers=ChromeHeadlessNoSandbox --source-map=false --progress=false --code-coverage=false",
-    "test:e2e": "node tests/run_e2e_tests.js"
+    "test:e2e": "node tests/run_e2e_tests.js",
+    "test:e2e:suite": "node tests/e2e/run_e2e.js"
   },
   "private": true,
   "dependencies": {
