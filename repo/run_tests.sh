@@ -4,6 +4,7 @@ set -eu
 COMPOSE="docker compose"
 
 # Bring up services
+$COMPOSE down -v --remove-orphans
 $COMPOSE up -d --build
 
 echo "Waiting up to 30s for Postgres readiness..."

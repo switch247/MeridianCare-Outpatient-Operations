@@ -1,17 +1,16 @@
 services:
   db:
     image: postgres:15
-    container_name: t2-db
+    container_name: t3-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: meridiancare-clinic
     ports:
       - "127.0.0.1:5432:5432"
-
-    # Named volumes for production safety and portability
+    # Use a named volume for production and cross-platform compatibility
     volumes:
-      pgdata:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d meridiancare-clinic"]
       interval: 3s
@@ -20,10 +19,10 @@ services:
       start_period: 5s
 
   backend:
-    container_name: t2-backend
+    container_name: t3-backend
     build: ./backend
     environment:
-      DATABASE_URL: postgres://postgres:postgres@t2-db:5432/meridiancare-clinic
+      DATABASE_URL: postgres://postgres:postgres@t3-db:5432/meridiancare-clinic
       JWT_SECRET: ${JWT_SECRET:-meridian-local-jwt-secret}
       PHI_KEY: ${PHI_KEY:-meridian-local-phi-key}
       PORT: 3000
@@ -39,7 +38,7 @@ services:
         condition: service_healthy
 
   frontend:
-    container_name: t2-frontend
+    container_name: t3-frontend
     build: ./frontend
     environment:
       API_BASE_URL: http://localhost:3000
@@ -47,8 +46,8 @@ services:
       - "14200:4200"
     depends_on:
       - backend
-    # Use a named volume for production and cross-platform compatibility
-  volumes:
-      - pgdata:/var/lib/postgresql/data
 
-# no named volumes required; Postgres data is bind-mounted to ./data/postgres
+
+# Named volume for Postgres data
+volumes:
+  pgdata:
