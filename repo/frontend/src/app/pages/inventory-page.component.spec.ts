@@ -69,9 +69,10 @@ describe('InventoryPageComponent', () => {
 
   it('createItem calls createInventoryItem with model', () => {
     apiSpy.createInventoryItem.and.returnValue(of({ id: 'item-3' }));
+    // Use the actual default values for createModel
     component.createModel = { sku: 'NEW-SKU', name: 'New Drug', lowStockThreshold: 5, lotTracking: false, serialTracking: false };
     component.createItem();
-    expect(apiSpy.createInventoryItem).toHaveBeenCalledWith(component.createModel);
+    expect(apiSpy.createInventoryItem).toHaveBeenCalledWith({ sku: 'NEW-SKU', name: 'New Drug', lowStockThreshold: 5, lotTracking: false, serialTracking: false });
     expect(component.message).toBe('Inventory item created.');
     expect(component.openCreate).toBeFalse();
   });

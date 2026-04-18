@@ -34,7 +34,13 @@ async function createBrowser() {
   return chromium.launch({
     headless: true,
     executablePath: CHROMIUM_PATH,
-    args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
+    args: [
+      '--no-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-web-security',
+      '--disable-site-isolation-trials',
+    ],
   });
 }
 
@@ -59,7 +65,15 @@ async function login(page, role) {
   await page.fill('input[name="username"]', username);
   await page.fill('input[name="password"]', SEED_PASSWORD);
   await page.click('button[type="submit"]');
-  await page.waitForSelector('main', { timeout: 20000 });
+  // Wait for either main (success) or .status (login error)
+  const result = await Promise.race([
+    page.waitForSelector('main', { timeout: 20000 }).then(() => 'main'),
+    page.waitForSelector('.status', { timeout: 20000 }).then(() => 'status'),
+  ]);
+  if (result === 'status') {
+    const msg = await page.textContent('.status');
+    throw new Error('Login failed: ' + (msg || 'Unknown error'));
+  }
 }
 
 async function logout(page) {

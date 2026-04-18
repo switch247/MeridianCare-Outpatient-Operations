@@ -32,11 +32,15 @@ describe('HomePageComponent', () => {
 
   beforeEach(async () => {
     apiSpy = jasmine.createSpyObj<ApiService>('ApiService', ['getKpis', 'getOverview']);
-    authSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getRole', 'isAuthenticated']);
+    authSpy = jasmine.createSpyObj<AuthService>('AuthService', ['getRole', 'isAuthenticated', 'can', 'user']);
+    
     apiSpy.getKpis.and.returnValue(of(mockKpis));
     apiSpy.getOverview.and.returnValue(of(mockOverview));
+    
     authSpy.getRole.and.returnValue('admin');
     authSpy.isAuthenticated.and.returnValue(true);
+    authSpy.can.and.callFake((p: string) => true);
+    authSpy.user.and.returnValue({ id: 'u1', name: 'Test User', role: 'admin' });
 
     await TestBed.configureTestingModule({
       imports: [HomePageComponent],

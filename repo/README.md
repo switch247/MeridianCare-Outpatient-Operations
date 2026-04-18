@@ -245,4 +245,4 @@ All 13 spec files in `frontend/src/app/`:
 - `admin@local` (`admin`)
 - `auditor@local` (`auditor`)
 
-Seed password is read from `SEED_PASSWORD` in `.env`.
+Seed password is read from `SEED_PASSWORD`(default : `Password!123`) in `.env` or compose file.

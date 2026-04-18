@@ -120,7 +120,7 @@ async function credentialingRoutes(fastify, opts) {
 
   fastify.get('/api/credentialing/export', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
-    const rows = (await pool.query('SELECT id,entity_type,full_name,license_expiry,status,created_at FROM credentialing_profiles ORDER BY created_at DESC LIMIT 500')).rows;
+    const rows = (await pool.query('SELECT id,entity_type,full_name,license_expiry,status FROM credentialing_profiles ORDER BY id DESC LIMIT 500')).rows;
     const summary = {
       total: rows.length,
       active: rows.filter((r) => r.status === 'active').length,
@@ -131,7 +131,7 @@ async function credentialingRoutes(fastify, opts) {
 
   fastify.get('/api/organizations', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
     if (!ensureAdmin(request, reply)) return;
-    return (await pool.query('SELECT * FROM organizations ORDER BY created_at DESC LIMIT 200')).rows;
+    return (await pool.query('SELECT * FROM organizations ORDER BY id DESC LIMIT 200')).rows;
   });
 
   fastify.post('/api/organizations', { preHandler: [opts.permit('admin')] }, async (request, reply) => {
@@ -169,3 +169,4 @@ async function credentialingRoutes(fastify, opts) {
 }
 
 module.exports = credentialingRoutes;
+

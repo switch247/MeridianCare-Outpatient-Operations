@@ -182,6 +182,7 @@ async function buildApp() {
   };
 
   app.get("/health", async () => ({ ok: true }));
+  app.get("/api/health", async () => ({ ok: true }));
 
   // register clinics routes separately (clean architecture)
 

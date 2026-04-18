@@ -21,6 +21,10 @@ async function main() {
   const { runRouteIsolationMatrix } = require('./route_isolation_matrix.test');
   const { runBillingUat } = require('./billing_uat.test');
   const { runComprehensiveCoverage } = require('./comprehensive_coverage.test');
+  const { runInventoryApi } = require('./inventory_api_test');
+  const { runCredentialingApi } = require('./credentialing_api_test');
+  const { runSyncAuditApi } = require('./sync_audit_api_test');
+  const { runAdminCrawlerObsApi } = require('./admin_crawler_obs_api_test');
 
   const { app, api } = await createApiContext();
   const sessions = await bootstrapAuth(api);
@@ -35,6 +39,10 @@ async function main() {
     await runNamed('route-isolation-matrix', runRouteIsolationMatrix, api, sessions);
     await runNamed('billing-uat', runBillingUat, api, sessions);
     await runNamed('comprehensive-coverage', runComprehensiveCoverage, api, sessions);
+    await runNamed('inventory-api', runInventoryApi, api, sessions);
+    await runNamed('credentialing-api', runCredentialingApi, api, sessions);
+    await runNamed('sync-audit-api', runSyncAuditApi, api, sessions);
+    await runNamed('admin-crawler-obs-api', runAdminCrawlerObsApi, api, sessions);
     console.log('[api] all API acceptance tests passed');
   } finally {
     await app.close();

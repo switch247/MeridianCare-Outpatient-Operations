@@ -341,6 +341,7 @@ async function runComprehensiveCoverage(api, sessions) {
 
   // POST /api/sync/enqueue — positive (admin)
   const syncEnqueue = await admin.post('/api/sync/enqueue').send({
+    entityType: 'patient',
     operation: 'patient_sync',
     payload: { patientId: 'test-id', action: 'update' },
   });

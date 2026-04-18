@@ -150,12 +150,12 @@ describe('AdminOpsPageComponent', () => {
 
   it('crawler pagination prev/next updates page and reloads', () => {
     component.crawlerTotal = 25;
-    component.crawlerPage = 2;
-    component.crawlerPrev();
-    expect(component.crawlerPage).toBe(1);
-
+    component.crawlerPage = 1;
     component.crawlerNext();
     expect(component.crawlerPage).toBe(2);
+
+    component.crawlerPrev();
+    expect(component.crawlerPage).toBe(1);
   });
 
   it('loadCrawler handles plain array response', () => {

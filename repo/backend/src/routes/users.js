@@ -5,6 +5,9 @@ async function usersRoutes(fastify, opts) {
   fastify.post('/api/users', { preHandler: [opts.permit('user:write')] }, async (request, reply) => {
     logger.info(['handler','users:create'], `create user request by ${request.user && request.user.username}`);
     const b = request.body || {};
+    if (!b.password) {
+      return reply.code(400).send({ code: 400, msg: 'Password is required' });
+    }
     // scope: created user inherits creator's clinic if present
     const clinicId = request.user && request.user.clinic_id ? request.user.clinic_id : b.clinicId || null;
     const user = await createUser({ username: b.username, password: b.password, role: b.role || 'provider', clinicId, actorId: request.user.id, actorRole: request.user.role, correlationId: request.requestId });

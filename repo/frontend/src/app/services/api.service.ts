@@ -9,8 +9,9 @@ export class ApiService {
   private role = signal<string>('');
   private baseUrl = '';
   constructor(private http: HttpClient) {
+    // Always prefer window.API_BASE_URL if present, else fallback
     const win = (window as any) || {};
-    this.baseUrl = (win.__env && win.__env.API_BASE_URL) || win.API_BASE_URL || 'http://localhost:13000';
+    this.baseUrl = (win.API_BASE_URL || (win.__env && win.__env.API_BASE_URL) || 'http://localhost:13000');
     if (this.baseUrl && this.baseUrl.endsWith('/')) this.baseUrl = this.baseUrl.slice(0, -1);
   }
   setToken(token: string) { this.token.set(token); }
