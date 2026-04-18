@@ -40,6 +40,8 @@ services:
   frontend:
     container_name: t2-frontend
     build: ./frontend
+    environment:
+      API_BASE_URL: http://localhost:3000
     ports:
       - "14200:4200"
     depends_on:

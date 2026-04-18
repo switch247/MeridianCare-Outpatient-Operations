@@ -51,7 +51,7 @@
             </label>
           </div>
           <button type="submit" [disabled]="busy() || !username" class="w-full bg-gradient-to-r from-[#0a4f38] to-[#0f6a4b] text-white py-4 px-6 rounded-lg font-semibold transition-all duration-300 hover:from-[#0f6a4b] hover:to-[#0a4f38] hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-[#cfd8d3] disabled:text-[#6b6b6b] disabled:border-[#e6e6e6] disabled:hover:transform-none">Sign In</button>
-          <p class="status m-0 min-h-6 text-[#aa2e2e] text-sm text-center mt-4 font-medium">{{ message() }}</p>
+          <p *ngIf="message() && message() !== 'Ready'" class="status m-0 min-h-6 text-[#aa2e2e] text-sm text-center mt-4 font-medium">{{ message() }}</p>
         </form>
       </div>
     </section>
