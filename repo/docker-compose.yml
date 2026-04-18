@@ -8,9 +8,10 @@ services:
       POSTGRES_DB: meridiancare-clinic
     ports:
       - "127.0.0.1:5432:5432"
-    # bind-mount DB files into the repo so data is stored alongside the code
+
+    # Named volumes for production safety and portability
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      pgdata:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d meridiancare-clinic"]
       interval: 3s
@@ -46,5 +47,8 @@ services:
       - "14200:4200"
     depends_on:
       - backend
+    # Use a named volume for production and cross-platform compatibility
+  volumes:
+      - pgdata:/var/lib/postgresql/data
 
 # no named volumes required; Postgres data is bind-mounted to ./data/postgres
