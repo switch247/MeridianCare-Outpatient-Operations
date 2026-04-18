@@ -1,9 +1,4 @@
--- User roles table for RBAC (fixes FK type issue)
-CREATE TABLE IF NOT EXISTS user_roles (
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL,
-  PRIMARY KEY (user_id, role)
-);
+
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -12,6 +7,14 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW());
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username_encrypted TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS email_encrypted TEXT;
+
+-- User roles table for RBAC (fixes FK type issue)
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  PRIMARY KEY (user_id, role)
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   user_id UUID NOT NULL REFERENCES users(id),
